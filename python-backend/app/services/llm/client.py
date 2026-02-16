@@ -2,6 +2,8 @@ import os
 from typing import Dict, List, Tuple
 from dotenv import load_dotenv
 from yandex_ai_studio_sdk import AIStudio
+import chromadb
+from chromadb.utils import embedding_functions
 
 load_dotenv()
 
@@ -26,6 +28,58 @@ class YandexAgentClient:
         )
 
         self.sessions: Dict[str, List[Tuple[str, str]]] = {}
+        self._init_memory()
+
+    def _init_memory(self):
+        self.chroma_client = chromadb.Client()
+
+        self.embedding_function = embedding_functions.SentenceTransformerEmbeddingFunction(
+            model_name="sentence-transformers/all-MiniLM-L6-v2"
+        )
+
+        self.memory_collection = self.chroma_client.get_or_create_collection(
+            name="agents_memory",
+            embedding_function=self.embedding_function
+        )
+
+    def _store_agent_memory(self, agent, session_id: str, user_text: str, answer: str):
+
+        memory_text = f"""
+        Пользователь сказал: {user_text}
+        Агент ответил: {answer}
+        """
+
+        memory_id = f"{agent.name}_{session_id}_{len(self.sessions.get(session_id, []))}"
+
+        self.memory_collection.add(
+            documents=[memory_text],
+            metadatas=[{
+                "agent": agent.name,
+                "session_id": session_id
+            }],
+            ids=[memory_id]
+        )  
+
+    def _get_agent_memory(self, agent, session_id: str, query: str, k: int = 5) -> str:
+        try:
+            results = self.memory_collection.query(
+                query_texts=[query],
+                n_results=k,
+                where={"agent": agent.name}
+            )
+
+            memories = results.get("documents", [[]])[0]
+
+            if not memories:
+                return ""
+
+            formatted = "\n".join(memories)
+
+            return f"\nВоспоминания агента:\n{formatted}\n"
+
+        except Exception as e:
+            print("Memory retrieval error:", e)
+            return ""  
 
     def _build_prompt(self, agent, session_id: str, user_text: str) -> str:
         history = self.sessions.get(session_id, [])
@@ -34,10 +88,17 @@ class YandexAgentClient:
         for role, message in history:
             conversation += f"{role}: {message}\n"
 
+        memories = self._get_agent_memory(agent, session_id, user_text)
+
         conversation += f"Пользователь: {user_text}\n"
         conversation += "Ответ:"
 
-        return f"{agent.prompt}\n\n{conversation}"
+        return f"""
+            {agent.prompt}
+            {memories}
+            Текущий диалог:
+            {conversation}
+        """
 
     def send_message(self, agent, session_id: str, text: str) -> str:
         try:
@@ -50,14 +111,13 @@ class YandexAgentClient:
             result = model.run(prompt)
             answer = result.text.strip()
 
-            # 🔹 Сохраняем историю
             if session_id not in self.sessions:
                 self.sessions[session_id] = []
 
             self.sessions[session_id].append(("Пользователь", text))
             self.sessions[session_id].append((agent.name, answer))
+            self._store_agent_memory(agent, session_id, text, answer)
 
-            # 🔹 Ограничиваем историю (последние 20 сообщений)
             if len(self.sessions[session_id]) > 20:
                 self.sessions[session_id] = self.sessions[session_id][-20:]
 
@@ -103,9 +163,3 @@ class ChatService:
     def process_message(self, agent, session_id: str, message: str) -> str:
         character_agent = self.agent_factory.get_agent(agent)
         return character_agent.respond(session_id, message)
-
-
-class Agent:
-    def __init__(self, name: str, prompt: str):
-        self.name = name
-        self.prompt = prompt
