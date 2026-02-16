@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, Float, ForeignKey
 from ..database.sqlite_setup import Base
 
-class relationship(Base):
+class Relationship(Base):
     __tablename__ = "relationships"
 
     agent1_id = Column(Integer, ForeignKey("agents.id"), primary_key=True)
