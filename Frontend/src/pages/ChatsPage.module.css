@@ -4,6 +4,9 @@
   width: 100%;
   overflow: hidden;
   position: relative;
+  padding: 16px;
+  gap: 12px;
+  box-sizing: border-box;
 }
 
 .sidebarWrapper {
@@ -12,6 +15,9 @@
   flex-shrink: 0;
   overflow: hidden;
   transition: width 0.25s ease, min-width 0.25s ease;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-bento);
+  background: var(--tg-sidebar-bg);
 }
 
 .sidebarWrapper.resizing {
@@ -29,7 +35,7 @@
 }
 
 .resizeHandle {
-  width: 6px;
+  width: 8px;
   flex-shrink: 0;
   cursor: col-resize;
   background: transparent;
@@ -39,19 +45,19 @@
 .resizeHandle::after {
   content: '';
   position: absolute;
-  top: 0;
+  top: 50%;
   left: 50%;
-  transform: translateX(-50%);
-  width: 2px;
-  height: 100%;
-  background: var(--tg-border, #e4e6eb);
-  border-radius: 1px;
+  transform: translate(-50%, -50%);
+  width: 4px;
+  height: 48px;
+  background: var(--tg-border);
+  border-radius: 2px;
   transition: background 0.15s;
 }
 
 .resizeHandle:hover::after,
 .resizeHandle:active::after {
-  background: var(--tg-accent, #0088cc);
+  background: var(--tg-accent);
 }
 
 .mainWrapper {
@@ -60,6 +66,9 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-bento);
+  background: var(--tg-chat-bg);
 }
 
 .loading {
@@ -67,6 +76,6 @@
   align-items: center;
   justify-content: center;
   min-height: 100vh;
-  color: var(--tg-muted, #65676b);
+  color: var(--tg-muted);
   font-size: 1rem;
 }

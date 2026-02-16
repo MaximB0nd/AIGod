@@ -1,37 +1,41 @@
 /**
  * Глобальные стили и CSS-переменные
- * Тема: пастельная палитра AIgod (светлая, минималистичная)
+ * Тема: Bento-стиль (закруглённые края, мягкие тени)
  */
 
 :root {
-  --color-bg: #ffffff;
-  --color-surface: #f0f7ff;
-  --color-border: #a5ccff;
-  --color-text: #2c3e50;
-  --color-muted: #7f8c8d;
-  --color-accent: #fd6b33;
-  --color-accent-hover: #ff8254;
+  --color-bg: #f5f5f7;
+  --color-surface: #ffffff;
+  --color-border: #e8e8ed;
+  --color-text: #1d1d1f;
+  --color-muted: #6e6e73;
+  --color-accent: #0071e3;
+  --color-accent-hover: #0077ed;
   --color-blue: #a5ccff;
-  --color-blue-light: #caf7ff;
-  --color-blue-lighter: #b8defe;
+  --color-blue-light: #e8f4fd;
+  --color-blue-lighter: #f0f7ff;
   --color-yellow: #ffbf58;
   --color-peach: #ffbf58;
   --color-coral: #fd6b33;
-  --shadow-soft: 0 4px 12px rgba(0, 0, 0, 0.05);
-  --radius-card: 16px;
+  --shadow-soft: 0 2px 8px rgba(0, 0, 0, 0.04);
+  --shadow-bento: 0 4px 24px rgba(0, 0, 0, 0.06);
+  --shadow-bento-lg: 0 8px 40px rgba(0, 0, 0, 0.08);
+  --radius-sm: 12px;
+  --radius-card: 20px;
   --radius-lg: 24px;
+  --radius-xl: 28px;
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-display: 'Manrope', var(--font-sans);
 
-  /* Telegram-like theme */
-  --tg-sidebar-bg: #f0f2f5;
+  /* Bento theme */
+  --tg-sidebar-bg: #ffffff;
   --tg-chat-bg: #ffffff;
-  --tg-border: #e4e6eb;
-  --tg-text: #1c1e21;
-  --tg-muted: #65676b;
-  --tg-accent: #0088cc;
-  --tg-hover: rgba(0, 0, 0, 0.05);
-  --tg-active: #e7f3ff;
+  --tg-border: #e8e8ed;
+  --tg-text: #1d1d1f;
+  --tg-muted: #6e6e73;
+  --tg-accent: #0071e3;
+  --tg-hover: rgba(0, 0, 0, 0.04);
+  --tg-active: rgba(0, 113, 227, 0.08);
 }
 
 *,
@@ -55,6 +59,7 @@ body {
   background: var(--color-bg);
   color: var(--color-text);
   line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
 }
 
 #root {

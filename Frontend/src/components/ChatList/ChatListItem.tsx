@@ -46,9 +46,7 @@ export function ChatListItem({ chat, isActive, onClick, onDelete, onAddCharacter
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation()
     setMenuOpen(false)
-    if (window.confirm(`Удалить чат «${chat.title}»?`)) {
-      onDelete(chat)
-    }
+    onDelete(chat)
   }
 
   const handleAddCharacter = (e: React.MouseEvent) => {

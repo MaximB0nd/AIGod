@@ -4,35 +4,36 @@
   height: 100%;
   display: flex;
   flex-direction: column;
-  background: var(--tg-sidebar-bg, #f0f2f5);
-  border-right: 1px solid var(--tg-border, #e4e6eb);
+  background: var(--tg-sidebar-bg);
+  border-radius: inherit;
+  overflow: hidden;
 }
 
 .header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 16px 12px 52px;
-  background: var(--tg-sidebar-bg, #f0f2f5);
-  border-bottom: 1px solid var(--tg-border, #e4e6eb);
+  padding: 16px 20px 16px 20px;
+  background: var(--tg-sidebar-bg);
+  border-bottom: 1px solid var(--tg-border);
 }
 
 .title {
   margin: 0;
   font-size: 1.25rem;
   font-weight: 600;
-  color: var(--tg-text, #1c1e21);
+  color: var(--tg-text);
 }
 
 .headerActions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 
 .userName {
   font-size: 0.8125rem;
-  color: var(--tg-muted, #65676b);
+  color: var(--tg-muted);
   max-width: 80px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -40,45 +41,45 @@
 }
 
 .logoutBtn {
-  padding: 6px 12px;
+  padding: 8px 14px;
   font-size: 0.8125rem;
   background: transparent;
-  border: 1px solid var(--tg-border, #e4e6eb);
-  border-radius: 6px;
+  border: 1px solid var(--tg-border);
+  border-radius: var(--radius-sm);
   cursor: pointer;
-  color: var(--tg-muted, #65676b);
+  color: var(--tg-muted);
   transition: background 0.15s, color 0.15s;
 }
 
 .logoutBtn:hover {
-  background: var(--tg-hover, rgba(0, 0, 0, 0.05));
-  color: var(--tg-text, #1c1e21);
+  background: var(--tg-hover);
+  color: var(--tg-text);
 }
 
 .createBtn {
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 1.5rem;
   font-weight: 300;
-  color: var(--tg-accent, #0088cc);
-  background: transparent;
+  color: var(--tg-accent);
+  background: var(--tg-hover);
   border: none;
-  border-radius: 50%;
+  border-radius: var(--radius-sm);
   cursor: pointer;
   transition: background 0.15s;
 }
 
 .createBtn:hover {
-  background: var(--tg-hover, rgba(0, 136, 204, 0.1));
+  background: var(--tg-active);
 }
 
 .list {
   list-style: none;
   margin: 0;
-  padding: 0;
+  padding: 8px;
   overflow-y: auto;
   flex: 1;
 }
@@ -88,9 +89,11 @@
   display: flex;
   align-items: flex-start;
   gap: 12px;
-  padding: 12px 16px;
+  padding: 12px 14px;
+  margin-bottom: 4px;
   background: transparent;
   border: none;
+  border-radius: var(--radius-sm);
   cursor: pointer;
   text-align: left;
   font-family: inherit;
@@ -98,19 +101,19 @@
 }
 
 .item:hover {
-  background: var(--tg-hover, rgba(0, 0, 0, 0.05));
+  background: var(--tg-hover);
 }
 
 .item.active {
-  background: var(--tg-active, #e7f3ff);
+  background: var(--tg-active);
 }
 
 .avatar {
   position: relative;
   flex-shrink: 0;
-  width: 52px;
-  height: 52px;
-  border-radius: 50%;
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
   overflow: hidden;
 }
 
@@ -126,16 +129,16 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1rem;
+  font-size: 0.9375rem;
   font-weight: 600;
   color: #fff;
-  background: linear-gradient(135deg, #0088cc, #00a8e8);
+  background: linear-gradient(135deg, var(--tg-accent), #00a8e8);
 }
 
 .badge {
   position: absolute;
-  top: -2px;
-  right: -2px;
+  top: -4px;
+  right: -4px;
   min-width: 20px;
   height: 20px;
   padding: 0 6px;
@@ -145,7 +148,7 @@
   font-size: 0.75rem;
   font-weight: 600;
   color: #fff;
-  background: var(--tg-accent, #0088cc);
+  background: var(--tg-accent);
   border-radius: 10px;
 }
 
@@ -165,7 +168,7 @@
 .name {
   font-size: 0.9375rem;
   font-weight: 600;
-  color: var(--tg-text, #1c1e21);
+  color: var(--tg-text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -174,47 +177,49 @@
 .time {
   flex-shrink: 0;
   font-size: 0.75rem;
-  color: var(--tg-muted, #65676b);
+  color: var(--tg-muted);
 }
 
 .preview {
   margin: 0;
   font-size: 0.875rem;
-  color: var(--tg-muted, #65676b);
+  color: var(--tg-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-/* Контекстное меню */
+/* Контекстное меню — bento */
 .contextMenu {
   position: fixed;
   z-index: 1000;
-  min-width: 180px;
-  padding: 6px 0;
-  background: var(--tg-sidebar-bg, #fff);
-  border: 1px solid var(--tg-border, #e4e6eb);
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  min-width: 200px;
+  padding: 8px;
+  background: var(--tg-sidebar-bg);
+  border: 1px solid var(--tg-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-bento-lg);
   display: flex;
   flex-direction: column;
+  gap: 2px;
 }
 
 .contextMenuItem {
   width: 100%;
-  padding: 10px 16px;
+  padding: 10px 14px;
   border: none;
   background: transparent;
   font-size: 0.9375rem;
-  color: var(--tg-text, #1c1e21);
+  color: var(--tg-text);
   text-align: left;
   cursor: pointer;
   font-family: inherit;
+  border-radius: var(--radius-sm);
   transition: background 0.15s;
 }
 
 .contextMenuItem:hover {
-  background: var(--tg-hover, rgba(0, 0, 0, 0.05));
+  background: var(--tg-hover);
 }
 
 .contextMenuDanger:hover {
