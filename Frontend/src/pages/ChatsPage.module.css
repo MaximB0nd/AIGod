@@ -71,6 +71,38 @@
   background: var(--tg-chat-bg);
 }
 
+.rightPanelWrapper {
+  width: 320px;
+  min-width: 320px;
+  flex-shrink: 0;
+  overflow: hidden;
+  transition: width 0.25s ease, min-width 0.25s ease;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-bento);
+  background: var(--tg-sidebar-bg);
+}
+
+.rightPanelWrapper.resizing {
+  transition: none;
+}
+
+.rightPanelWrapper.rightPanelCollapsed {
+  width: 0;
+  min-width: 0;
+}
+
+.rightPanel {
+  height: 100%;
+  padding: 16px;
+  overflow-y: auto;
+}
+
+.rightPanelPlaceholder {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--tg-muted);
+}
+
 .loading {
   display: flex;
   align-items: center;

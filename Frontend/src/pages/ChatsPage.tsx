@@ -16,6 +16,11 @@ const SIDEBAR_MAX_WIDTH = 600
 const SIDEBAR_DEFAULT_WIDTH = 360
 const STORAGE_KEY = 'chats-sidebar-width'
 
+const RIGHT_PANEL_MIN_WIDTH = 240
+const RIGHT_PANEL_MAX_WIDTH = 600
+const RIGHT_PANEL_DEFAULT_WIDTH = 320
+const RIGHT_STORAGE_KEY = 'chats-right-panel-width'
+
 function getStoredWidth(): number {
   try {
     const stored = localStorage.getItem(STORAGE_KEY)
@@ -29,6 +34,19 @@ function getStoredWidth(): number {
   return SIDEBAR_DEFAULT_WIDTH
 }
 
+function getStoredRightWidth(): number {
+  try {
+    const stored = localStorage.getItem(RIGHT_STORAGE_KEY)
+    if (stored) {
+      const w = parseInt(stored, 10)
+      if (w >= RIGHT_PANEL_MIN_WIDTH && w <= RIGHT_PANEL_MAX_WIDTH) return w
+    }
+  } catch {
+    /* ignore */
+  }
+  return RIGHT_PANEL_DEFAULT_WIDTH
+}
+
 export function ChatsPage() {
   const { activeChat, isLoading, deleteChat } = useChat()
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -36,17 +54,26 @@ export function ChatsPage() {
   const [chatForAddModal, setChatForAddModal] = useState<Chat | null>(null)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [sidebarWidth, setSidebarWidth] = useState(getStoredWidth)
-  const [isResizing, setIsResizing] = useState(false)
+  const [rightPanelCollapsed, setRightPanelCollapsed] = useState(false)
+  const [rightPanelWidth, setRightPanelWidth] = useState(getStoredRightWidth)
+  const [resizingSide, setResizingSide] = useState<'left' | 'right' | null>(null)
   const widthRef = useRef(sidebarWidth)
+  const rightWidthRef = useRef(rightPanelWidth)
   widthRef.current = sidebarWidth
+  rightWidthRef.current = rightPanelWidth
 
-  const handleResizeStart = useCallback((e: React.MouseEvent) => {
+  const handleResizeStartLeft = useCallback((e: React.MouseEvent) => {
     e.preventDefault()
-    setIsResizing(true)
+    setResizingSide('left')
+  }, [])
+
+  const handleResizeStartRight = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    setResizingSide('right')
   }, [])
 
   useEffect(() => {
-    if (!isResizing) return
+    if (resizingSide !== 'left') return
 
     const handleMove = (e: MouseEvent) => {
       const newWidth = Math.max(SIDEBAR_MIN_WIDTH, Math.min(SIDEBAR_MAX_WIDTH, e.clientX))
@@ -54,7 +81,7 @@ export function ChatsPage() {
     }
 
     const handleUp = () => {
-      setIsResizing(false)
+      setResizingSide(null)
       try {
         localStorage.setItem(STORAGE_KEY, String(widthRef.current))
       } catch {
@@ -68,7 +95,36 @@ export function ChatsPage() {
       window.removeEventListener('mousemove', handleMove)
       window.removeEventListener('mouseup', handleUp)
     }
-  }, [isResizing])
+  }, [resizingSide])
+
+  useEffect(() => {
+    if (resizingSide !== 'right') return
+
+    const handleMove = (e: MouseEvent) => {
+      const widthFromRight = window.innerWidth - e.clientX - 16
+      const newWidth = Math.max(
+        RIGHT_PANEL_MIN_WIDTH,
+        Math.min(RIGHT_PANEL_MAX_WIDTH, widthFromRight)
+      )
+      setRightPanelWidth(newWidth)
+    }
+
+    const handleUp = () => {
+      setResizingSide(null)
+      try {
+        localStorage.setItem(RIGHT_STORAGE_KEY, String(rightWidthRef.current))
+      } catch {
+        /* ignore */
+      }
+    }
+
+    window.addEventListener('mousemove', handleMove)
+    window.addEventListener('mouseup', handleUp)
+    return () => {
+      window.removeEventListener('mousemove', handleMove)
+      window.removeEventListener('mouseup', handleUp)
+    }
+  }, [resizingSide])
 
   const handleAddCharacter = useCallback(() => {
     setChatForAddModal(null)
@@ -79,13 +135,6 @@ export function ChatsPage() {
     setChatForAddModal(chat)
     setShowAddCharModal(true)
   }, [])
-
-  const handleDeleteChat = useCallback(async () => {
-    if (!activeChat) return
-    if (window.confirm(`Удалить чат «${activeChat.title}»?`)) {
-      await deleteChat(activeChat.id)
-    }
-  }, [activeChat, deleteChat])
 
   const handleDeleteChatFromList = useCallback(
     async (chat: Chat) => {
@@ -110,9 +159,9 @@ export function ChatsPage() {
   }
 
   return (
-    <div className={`${styles.layout} ${isResizing ? styles.resizing : ''}`}>
+    <div className={`${styles.layout} ${resizingSide ? styles.resizing : ''}`}>
       <div
-        className={`${styles.sidebarWrapper} ${sidebarCollapsed ? styles.collapsed : ''} ${isResizing ? styles.resizing : ''}`}
+        className={`${styles.sidebarWrapper} ${sidebarCollapsed ? styles.collapsed : ''} ${resizingSide === 'left' ? styles.resizing : ''}`}
         style={sidebarCollapsed ? undefined : { width: sidebarWidth, minWidth: sidebarWidth }}
       >
         <ChatList
@@ -125,18 +174,36 @@ export function ChatsPage() {
         <div
           role="separator"
           aria-orientation="vertical"
-          aria-label="Изменить ширину панели"
+          aria-label="Изменить ширину левой панели"
           className={styles.resizeHandle}
-          onMouseDown={handleResizeStart}
+          onMouseDown={handleResizeStartLeft}
         />
       )}
       <div className={styles.mainWrapper}>
         <ChatView
           onAddCharacter={activeChat ? handleAddCharacter : undefined}
-          onDeleteChat={activeChat ? handleDeleteChat : undefined}
           onToggleSidebar={() => setSidebarCollapsed((v) => !v)}
           sidebarCollapsed={sidebarCollapsed}
+          onToggleRightPanel={() => setRightPanelCollapsed((v) => !v)}
+          rightPanelCollapsed={rightPanelCollapsed}
         />
+      </div>
+      {!rightPanelCollapsed && (
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Изменить ширину правой панели"
+          className={styles.resizeHandle}
+          onMouseDown={handleResizeStartRight}
+        />
+      )}
+      <div
+        className={`${styles.rightPanelWrapper} ${rightPanelCollapsed ? styles.rightPanelCollapsed : ''} ${resizingSide === 'right' ? styles.resizing : ''}`}
+        style={rightPanelCollapsed ? undefined : { width: rightPanelWidth, minWidth: rightPanelWidth }}
+      >
+        <div className={styles.rightPanel}>
+          <p className={styles.rightPanelPlaceholder}>Правая панель</p>
+        </div>
       </div>
       <CreateChatModal
         isOpen={showCreateModal}

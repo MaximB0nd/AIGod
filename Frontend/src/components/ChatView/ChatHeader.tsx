@@ -9,14 +9,16 @@ interface ChatHeaderProps {
   chat: Chat
   onClose?: () => void
   onAddCharacter?: () => void
-  onDelete?: () => void
   onToggleSidebar?: () => void
   sidebarCollapsed?: boolean
+  /** Раскрыть/свернуть правую панель */
+  onToggleRightPanel?: () => void
+  rightPanelCollapsed?: boolean
   /** Клик по иконке/названию группы — открыть описание */
   onGroupClick?: () => void
 }
 
-export function ChatHeader({ chat, onClose, onAddCharacter, onDelete, onToggleSidebar, sidebarCollapsed, onGroupClick }: ChatHeaderProps) {
+export function ChatHeader({ chat, onClose, onAddCharacter, onToggleSidebar, sidebarCollapsed, onToggleRightPanel, rightPanelCollapsed, onGroupClick }: ChatHeaderProps) {
   return (
     <header className={styles.header}>
       {onToggleSidebar && (
@@ -91,14 +93,15 @@ export function ChatHeader({ chat, onClose, onAddCharacter, onDelete, onToggleSi
             +
           </button>
         )}
-        {onDelete && (
+        {onToggleRightPanel && (
           <button
             type="button"
             className={styles.headerBtn}
-            onClick={onDelete}
-            title="Удалить чат"
+            onClick={onToggleRightPanel}
+            title={rightPanelCollapsed ? 'Развернуть правую панель' : 'Свернуть правую панель'}
+            aria-label={rightPanelCollapsed ? 'Развернуть правую панель' : 'Свернуть правую панель'}
           >
-            🗑
+            {rightPanelCollapsed ? '◀' : '▶'}
           </button>
         )}
       </div>

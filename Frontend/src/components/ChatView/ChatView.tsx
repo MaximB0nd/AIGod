@@ -13,12 +13,13 @@ import styles from './ChatView.module.css'
 
 interface ChatViewProps {
   onAddCharacter?: () => void
-  onDeleteChat?: () => void
   onToggleSidebar?: () => void
   sidebarCollapsed?: boolean
+  onToggleRightPanel?: () => void
+  rightPanelCollapsed?: boolean
 }
 
-export function ChatView({ onAddCharacter, onDeleteChat, onToggleSidebar, sidebarCollapsed }: ChatViewProps) {
+export function ChatView({ onAddCharacter, onToggleSidebar, sidebarCollapsed, onToggleRightPanel, rightPanelCollapsed }: ChatViewProps) {
   const { activeChat, feed, characters, selectChat } = useChat()
   const scrollRef = useRef<HTMLDivElement>(null)
   const [showGroupInfo, setShowGroupInfo] = useState(false)
@@ -38,17 +39,32 @@ export function ChatView({ onAddCharacter, onDeleteChat, onToggleSidebar, sideba
   if (!activeChat) {
     return (
       <div className={styles.chat}>
-        {onToggleSidebar && (
+        {(onToggleSidebar || onToggleRightPanel) && (
           <header className={styles.header}>
-            <button
-              type="button"
-              className={styles.headerToggleBtn}
-              onClick={onToggleSidebar}
-              title={sidebarCollapsed ? 'Развернуть панель' : 'Свернуть панель'}
-              aria-label={sidebarCollapsed ? 'Развернуть панель' : 'Свернуть панель'}
-            >
-              {sidebarCollapsed ? '▶' : '◀'}
-            </button>
+            {onToggleSidebar && (
+              <button
+                type="button"
+                className={styles.headerToggleBtn}
+                onClick={onToggleSidebar}
+                title={sidebarCollapsed ? 'Развернуть панель' : 'Свернуть панель'}
+                aria-label={sidebarCollapsed ? 'Развернуть панель' : 'Свернуть панель'}
+              >
+                {sidebarCollapsed ? '▶' : '◀'}
+              </button>
+            )}
+            <div className={styles.headerActions} style={{ marginLeft: 'auto' }}>
+              {onToggleRightPanel && (
+                <button
+                  type="button"
+                  className={styles.headerBtn}
+                  onClick={onToggleRightPanel}
+                  title={rightPanelCollapsed ? 'Развернуть правую панель' : 'Свернуть правую панель'}
+                  aria-label={rightPanelCollapsed ? 'Развернуть правую панель' : 'Свернуть правую панель'}
+                >
+                  {rightPanelCollapsed ? '◀' : '▶'}
+                </button>
+              )}
+            </div>
           </header>
         )}
         <div className={styles.empty}>
@@ -69,9 +85,10 @@ export function ChatView({ onAddCharacter, onDeleteChat, onToggleSidebar, sideba
         chat={activeChat}
         onClose={handleCloseChat}
         onAddCharacter={onAddCharacter}
-        onDelete={onDeleteChat}
         onToggleSidebar={onToggleSidebar}
         sidebarCollapsed={sidebarCollapsed}
+        onToggleRightPanel={onToggleRightPanel}
+        rightPanelCollapsed={rightPanelCollapsed}
         onGroupClick={handleGroupClick}
       />
       <div className={styles.messages} ref={scrollRef}>
