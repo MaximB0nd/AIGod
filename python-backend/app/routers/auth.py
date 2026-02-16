@@ -13,8 +13,14 @@ from app.utils.auth import create_access_token, get_password_hash, verify_passwo
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-@router.post("/register", response_model=UserOut)
+@router.post(
+    "/register",
+    response_model=UserOut,
+    summary="Регистрация",
+    response_description="Созданный пользователь (без пароля)",
+)
 def register(user: UserCreate, db: Session = Depends(get_db)):
+    """Регистрация: email + пароль (мин. 8 символов)."""
     db_user = db.query(User).filter(User.email == user.email).first()
     if db_user:
         raise HTTPException(
@@ -30,12 +36,18 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
     return new_user
 
 
-@router.post("/login", response_model=Token)
+@router.post(
+    "/login",
+    response_model=Token,
+    summary="Логин",
+    response_description="Access token для заголовка Authorization: Bearer <token>",
+)
 def login(
     username: str = Form(..., description="Email (OAuth2 uses 'username' field)"),
     password: str = Form(...),
     db: Session = Depends(get_db),
 ):
+    """Логин по email (в форме поле — username) и паролю. Возвращает JWT access_token."""
     user = db.query(User).filter(User.email == username).first()
     if not user or not verify_password(password, user.hashed_password):
         raise HTTPException(
@@ -56,6 +68,12 @@ def login(
     return Token(access_token=access_token, token_type="bearer")
 
 
-@router.get("/me", response_model=UserOut)
+@router.get(
+    "/me",
+    response_model=UserOut,
+    summary="Текущий пользователь",
+    response_description="Данные авторизованного пользователя",
+)
 def read_users_me(current_user: User = Depends(get_current_user)):
+    """Получить данные текущего пользователя. Требует Bearer token (кнопка Authorize)."""
     return current_user

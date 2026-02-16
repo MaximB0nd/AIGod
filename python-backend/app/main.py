@@ -20,7 +20,28 @@ async def lifespan(app: FastAPI):
     yield
     print("→ Завершение lifespan (shutdown)")
 
-app = FastAPI(title="AIgod", lifespan=lifespan)
+app = FastAPI(
+    title="AIgod API",
+    description="""
+API бэкенда AIgod для хакатона.
+
+## Аутентификация
+- **POST /auth/register** — регистрация (email + пароль)
+- **POST /auth/login** — логин (form: username=email, password), возвращает access_token
+- **GET /auth/me** — текущий пользователь (требует Bearer token)
+
+Для тестирования защищённых эндпоинтов: нажмите **Authorize**, введите email и пароль, получите токен.
+    """,
+    version="1.0.0",
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_tags=[
+        {"name": "auth", "description": "Регистрация, логин, получение текущего пользователя"},
+        {"name": "system", "description": "Проверка работы сервера и БД"},
+        {"name": "agents", "description": "Работа с агентами"},
+    ],
+    lifespan=lifespan,
+)
 
 # Роутеры
 app.include_router(auth_router)
@@ -54,19 +75,21 @@ def init_default_agents(db: Session):
 # Роуты
 # -------------------------------
 
-# Проверка работы бека
-@app.get("/")
+@app.get("/", tags=["system"], summary="Проверка работы")
 def root():
+    """Проверка, что бэкенд запущен."""
     return {"message": "AIgod backend работает"}
 
-# Проверка подключения к БД
-@app.get("/test-db")
+
+@app.get("/test-db", tags=["system"], summary="Проверка БД")
 def test_db(db: Session = Depends(get_db)):
+    """Проверка подключения к базе данных."""
     return {"status": "база подключена"}
 
-# Получение всех агентов
-@app.get("/agents")
+
+@app.get("/agents", tags=["agents"], summary="Список агентов")
 def get_all_agents(db: Session = Depends(get_db)):
+    """Получить всех агентов из базы."""
     agents = db.query(Agent).all()
     if not agents:
         return {"message": "Агенты не найдены", "count": 0}

@@ -11,6 +11,12 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     password: str = Field(..., min_length=8)
 
+    model_config = {
+        "json_schema_extra": {
+            "examples": [{"email": "user@example.com", "password": "password123"}]
+        }
+    }
+
 
 class UserOut(UserBase):
     id: int
