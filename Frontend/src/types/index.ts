@@ -51,3 +51,4 @@ export interface SimulationState {
 }
 
 export * from './chat'
+export * from './auth'

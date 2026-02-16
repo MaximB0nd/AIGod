@@ -38,9 +38,44 @@
   transition: width 0.25s ease, min-width 0.25s ease;
 }
 
+.sidebarWrapper.resizing {
+  transition: none;
+}
+
+.layout.resizing {
+  user-select: none;
+  cursor: col-resize;
+}
+
 .sidebarWrapper.collapsed {
   width: 0;
   min-width: 0;
+}
+
+.resizeHandle {
+  width: 6px;
+  flex-shrink: 0;
+  cursor: col-resize;
+  background: transparent;
+  position: relative;
+}
+
+.resizeHandle::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 2px;
+  height: 100%;
+  background: var(--tg-border, #e4e6eb);
+  border-radius: 1px;
+  transition: background 0.15s;
+}
+
+.resizeHandle:hover::after,
+.resizeHandle:active::after {
+  background: var(--tg-accent, #0088cc);
 }
 
 .mainWrapper {

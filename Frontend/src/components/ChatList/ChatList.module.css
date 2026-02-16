@@ -1,6 +1,6 @@
 .sidebar {
-  width: 360px;
-  min-width: 360px;
+  width: 100%;
+  min-width: 0;
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -21,6 +21,37 @@
   margin: 0;
   font-size: 1.25rem;
   font-weight: 600;
+  color: var(--tg-text, #1c1e21);
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.userName {
+  font-size: 0.8125rem;
+  color: var(--tg-muted, #65676b);
+  max-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.logoutBtn {
+  padding: 6px 12px;
+  font-size: 0.8125rem;
+  background: transparent;
+  border: 1px solid var(--tg-border, #e4e6eb);
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--tg-muted, #65676b);
+  transition: background 0.15s, color 0.15s;
+}
+
+.logoutBtn:hover {
+  background: var(--tg-hover, rgba(0, 0, 0, 0.05));
   color: var(--tg-text, #1c1e21);
 }
 

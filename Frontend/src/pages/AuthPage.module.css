@@ -1,0 +1,128 @@
+.page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--color-surface, #f0f7ff) 0%, var(--color-blue-light, #caf7ff) 100%);
+  padding: 24px;
+}
+
+.card {
+  width: 100%;
+  max-width: 400px;
+  background: #fff;
+  border-radius: var(--radius-card, 16px);
+  box-shadow: var(--shadow-soft, 0 4px 12px rgba(0, 0, 0, 0.05));
+  padding: 32px;
+}
+
+.title {
+  margin: 0 0 4px;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--tg-text, #1c1e21);
+  text-align: center;
+}
+
+.subtitle {
+  margin: 0 0 24px;
+  font-size: 0.9375rem;
+  color: var(--tg-muted, #65676b);
+  text-align: center;
+}
+
+.tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.tab {
+  flex: 1;
+  padding: 10px 16px;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  background: transparent;
+  border: 1px solid var(--tg-border, #e4e6eb);
+  border-radius: 8px;
+  cursor: pointer;
+  color: var(--tg-muted, #65676b);
+  transition: all 0.15s;
+}
+
+.tab:hover {
+  background: var(--tg-hover, rgba(0, 0, 0, 0.03));
+  color: var(--tg-text, #1c1e21);
+}
+
+.tabActive {
+  background: var(--tg-accent, #0088cc);
+  border-color: var(--tg-accent, #0088cc);
+  color: #fff;
+}
+
+.tabActive:hover {
+  background: var(--tg-accent, #0088cc);
+  color: #fff;
+  opacity: 0.95;
+}
+
+.error {
+  padding: 10px 14px;
+  margin-bottom: 16px;
+  font-size: 0.875rem;
+  color: #c0392b;
+  background: #fdecea;
+  border-radius: 8px;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--tg-text, #1c1e21);
+}
+
+.input {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  padding: 10px 14px;
+  font-size: 0.9375rem;
+  border: 1px solid var(--tg-border, #e4e6eb);
+  border-radius: 8px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.input:focus {
+  border-color: var(--tg-accent, #0088cc);
+}
+
+.submitBtn {
+  margin-top: 8px;
+  padding: 12px 20px;
+  font-size: 1rem;
+  font-weight: 600;
+  background: var(--tg-accent, #0088cc);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  color: #fff;
+  transition: opacity 0.15s;
+}
+
+.submitBtn:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.submitBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
