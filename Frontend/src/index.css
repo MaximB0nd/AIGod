@@ -1,0 +1,58 @@
+/**
+ * Глобальные стили и CSS-переменные
+ * Тема: пастельная палитра AIgod (светлая, минималистичная)
+ */
+
+:root {
+  --color-bg: #ffffff;
+  --color-surface: #f0f7ff;
+  --color-border: #a5ccff;
+  --color-text: #2c3e50;
+  --color-muted: #7f8c8d;
+  --color-accent: #fd6b33;
+  --color-accent-hover: #ff8254;
+  --color-blue: #a5ccff;
+  --color-blue-light: #caf7ff;
+  --color-blue-lighter: #b8defe;
+  --color-yellow: #ffbf58;
+  --color-peach: #ffbf58;
+  --color-coral: #fd6b33;
+  --shadow-soft: 0 4px 12px rgba(0, 0, 0, 0.05);
+  --radius-card: 16px;
+  --radius-lg: 24px;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-display: 'Manrope', var(--font-sans);
+
+  /* Telegram-like theme */
+  --tg-sidebar-bg: #f0f2f5;
+  --tg-chat-bg: #ffffff;
+  --tg-border: #e4e6eb;
+  --tg-text: #1c1e21;
+  --tg-muted: #65676b;
+  --tg-accent: #0088cc;
+  --tg-hover: rgba(0, 0, 0, 0.05);
+  --tg-active: #e7f3ff;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  background: var(--color-bg);
+  color: var(--color-text);
+  line-height: 1.5;
+}
+
+#root {
+  min-height: 100vh;
+}
