@@ -163,9 +163,3 @@ class ChatService:
     def process_message(self, agent, session_id: str, message: str) -> str:
         character_agent = self.agent_factory.get_agent(agent)
         return character_agent.respond(session_id, message)
-
-
-class Agent:
-    def __init__(self, name: str, prompt: str):
-        self.name = name
-        self.prompt = prompt
