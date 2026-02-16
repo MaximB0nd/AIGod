@@ -1,8 +1,8 @@
-from sqlalchemy import Column, Integer, String, JSON
-from ..database.sqlite_setup import Base
+from sqlalchemy import Column, Integer, JSON, String
+from sqlalchemy.orm import relationship
 
-# Модель таблицы Agent (персонажей в комнате).
-# Будет заполнена 6 персонажеми
+from app.database.sqlite_setup import Base
+
 
 class Agent(Base):
     __tablename__ = "agents"
@@ -10,4 +10,6 @@ class Agent(Base):
     name = Column(String, unique=True, nullable=False)
     avatar_url = Column(String, nullable=True)
     personality = Column(String, nullable=False)
-    state_vector = Column(JSON, default=dict)  # эмоции и т.п.
+    state_vector = Column(JSON, default=dict)
+
+    rooms = relationship("Room", secondary="room_agents", back_populates="agents")
