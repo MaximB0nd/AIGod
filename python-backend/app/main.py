@@ -1,11 +1,13 @@
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends
 from sqlalchemy.orm import Session
 from contextlib import asynccontextmanager
+
 from app.data.default_agents_data import agents_data
-from app.database.sqlite_setup import engine, Base, SessionLocal, get_db
+from app.database.sqlite_setup import Base, SessionLocal, engine, get_db
 from app.models.agent import Agent
 from app.models.message import Message
 from app.models.relationship import Relationship
+from app.routers.auth import router as auth_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -19,6 +21,9 @@ async def lifespan(app: FastAPI):
     print("→ Завершение lifespan (shutdown)")
 
 app = FastAPI(title="AIgod", lifespan=lifespan)
+
+# Роутеры
+app.include_router(auth_router)
 
 # Создаём таблицы
 Base.metadata.create_all(bind=engine)
