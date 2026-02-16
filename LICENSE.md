@@ -20,7 +20,7 @@ The full legal text of the license is available at: https://creativecommons.org/
 - **Разрешено**: Личное использование, образование, некоммерческие проекты, распространение с указанием авторства.
 - **Запрещено**: Коммерческое использование, продажа, использование в платных продуктах/сервисах, без указания авторства.
 
-Authors: Shulga Ivan, Prokudin Alexander, Bondarev Maxim
+Authors: Shulga Ivan, Prokudin Alexander, Bondarev Maxim, Irina Valaeva
 Copyright: 2026, All rights reserved under this license.
 
 For questions: ivan20140767@gmail.com
