@@ -2,12 +2,13 @@
  * Окно чата — нейросети общаются, пользователь пишет события от рассказчика
  */
 
-import { useRef, useEffect, useCallback } from 'react'
+import { useRef, useEffect, useCallback, useState } from 'react'
 import { useChat } from '@/context/ChatContext'
 import { MessageBubble } from './MessageBubble'
 import { EventBubble } from './EventBubble'
 import { ChatHeader } from './ChatHeader'
 import { NarratorInput } from './NarratorInput'
+import { GroupInfoModal } from '../GroupInfoModal/GroupInfoModal'
 import styles from './ChatView.module.css'
 
 interface ChatViewProps {
@@ -20,10 +21,15 @@ interface ChatViewProps {
 export function ChatView({ onAddCharacter, onDeleteChat, onToggleSidebar, sidebarCollapsed }: ChatViewProps) {
   const { activeChat, feed, characters, selectChat } = useChat()
   const scrollRef = useRef<HTMLDivElement>(null)
+  const [showGroupInfo, setShowGroupInfo] = useState(false)
 
   const handleCloseChat = useCallback(() => {
     selectChat(null)
   }, [selectChat])
+
+  const handleGroupClick = useCallback(() => {
+    setShowGroupInfo(true)
+  }, [])
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
@@ -66,6 +72,7 @@ export function ChatView({ onAddCharacter, onDeleteChat, onToggleSidebar, sideba
         onDelete={onDeleteChat}
         onToggleSidebar={onToggleSidebar}
         sidebarCollapsed={sidebarCollapsed}
+        onGroupClick={handleGroupClick}
       />
       <div className={styles.messages} ref={scrollRef}>
         <div className={styles.messagesInner}>
@@ -84,6 +91,11 @@ export function ChatView({ onAddCharacter, onDeleteChat, onToggleSidebar, sideba
         </div>
       </div>
       <NarratorInput chat={activeChat} />
+      <GroupInfoModal
+        isOpen={showGroupInfo}
+        onClose={() => setShowGroupInfo(false)}
+        chat={activeChat}
+      />
     </div>
   )
 }
