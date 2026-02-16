@@ -1,24 +1,125 @@
-import openai
 import os
+from typing import Dict, List, Tuple
 from dotenv import load_dotenv
+from yandex_ai_studio_sdk import AIStudio
 
 load_dotenv()
 
-YANDEX_CLOUD_FOLDER = "b1gmf4eokefphjloicr5"
-YANDEX_CLOUD_API_KEY = os.environ["YANDEX_CLOUD_API_KEY"]
-YANDEX_CLOUD_MODEL = "yandexgpt-lite/latest"
+YANDEX_CLOUD_FOLDER = os.getenv("YANDEX_CLOUD_FOLDER")
+YANDEX_CLOUD_API_KEY = os.getenv("YANDEX_CLOUD_API_KEY")
+TEMPERATURE = 0.5
 
 
-client = openai.OpenAI(
-    api_key=YANDEX_CLOUD_API_KEY,
-    base_url="https://ai.api.cloud.yandex.net/v1",
-    project=YANDEX_CLOUD_FOLDER
-)
+class YandexAgentClient:
 
-response = client.responses.create(
-    model=f"gpt://{YANDEX_CLOUD_FOLDER}/{YANDEX_CLOUD_MODEL}",
-    temperature=0.3,
-    instructions="""### Промпт для обучения нейросети персонажу «Копатыч» (из вселенной «Смешарики»)
+    def __init__(self, folder_id: str = None, api_key: str = None):
+        self.folder_id = folder_id or YANDEX_CLOUD_FOLDER
+        self.api_key = api_key or YANDEX_CLOUD_API_KEY
+
+        if not self.folder_id or not self.api_key:
+            raise ValueError("YANDEX_CLOUD_FOLDER и YANDEX_CLOUD_API_KEY должны быть заданы")
+
+        clean_api_key = self.api_key.replace("Api-Key ", "").strip()
+
+        self.sdk = AIStudio(
+            folder_id=self.folder_id,
+            auth=clean_api_key
+        )
+
+        # 🔹 Память диалогов: session_id -> [(role, message)]
+        self.sessions: Dict[str, List[Tuple[str, str]]] = {}
+
+    def _build_prompt(self, agent, session_id: str, user_text: str) -> str:
+        history = self.sessions.get(session_id, [])
+
+        conversation = ""
+        for role, message in history:
+            conversation += f"{role}: {message}\n"
+
+        conversation += f"Пользователь: {user_text}\n"
+        conversation += "Ответ:"
+
+        return f"{agent.prompt}\n\n{conversation}"
+
+    def send_message(self, agent, session_id: str, text: str) -> str:
+        try:
+            model = self.sdk.models.completions("yandexgpt").configure(
+                temperature=TEMPERATURE
+            )
+
+            prompt = self._build_prompt(agent, session_id, text)
+
+            result = model.run(prompt)
+            answer = result.text.strip()
+
+            # 🔹 Сохраняем историю
+            if session_id not in self.sessions:
+                self.sessions[session_id] = []
+
+            self.sessions[session_id].append(("Пользователь", text))
+            self.sessions[session_id].append((agent.name, answer))
+
+            # 🔹 Ограничиваем историю (последние 20 сообщений)
+            if len(self.sessions[session_id]) > 20:
+                self.sessions[session_id] = self.sessions[session_id][-20:]
+
+            return answer
+
+        except Exception as e:
+            print(f"Yandex AIAssistant error: {e}")
+            return "Ой-ой, связь пропала! Попробуй позже."
+
+
+class CharacterAgent:
+
+    def __init__(self, agent, agent_client: YandexAgentClient):
+        self.agent = agent
+        self.agent_client = agent_client
+
+    def respond(self, session_id: str, user_input: str) -> str:
+        return self.agent_client.send_message(
+            agent=self.agent,
+            session_id=session_id,
+            text=user_input,
+        )
+
+
+class AgentFactory:
+
+    def __init__(self, agent_client: YandexAgentClient):
+        self.agent_client = agent_client
+        self.agents: Dict[str, CharacterAgent] = {}
+
+    def get_agent(self, agent) -> CharacterAgent:
+        if agent.name not in self.agents:
+            self.agents[agent.name] = CharacterAgent(agent, self.agent_client)
+        return self.agents[agent.name]
+
+
+class ChatService:
+
+    def __init__(self):
+        self.agent_client = YandexAgentClient()
+        self.agent_factory = AgentFactory(self.agent_client)
+
+    def process_message(self, agent, session_id: str, message: str) -> str:
+        character_agent = self.agent_factory.get_agent(agent)
+        return character_agent.respond(session_id, message)
+
+
+class Agent:
+    def __init__(self, name: str, prompt: str):
+        self.name = name
+        self.prompt = prompt
+
+
+if __name__ == "__main__":
+    chat_service = ChatService()
+
+    kopatych_agent = Agent(
+        name="Копатыч",
+        prompt="""
+            ### Промпт для обучения нейросети персонажу «Копатыч» (из вселенной «Смешарики»)
 
 Назначение: Данный промпт предназначен для настройки языковой модели с целью генерации реалистичных диалогов, мыслей и описаний от лица персонажа Копатыч. Модель должна полностью соответствовать его характеру, манере речи, бэкграунду и стилю поведения, известным по мультсериалу «Смешарики».
 
@@ -155,9 +256,32 @@ response = client.responses.create(
 
 ---
 
-Этот промпт должен помочь нейросети точно воспроизводить речевой портрет и поведение Копатыча в любых сценариях общения.""",
-    input="Привет Капатыч! Меня зову харли квин, я люблю джокера и сумашедшая",
-    max_output_tokens=500
-)
+Этот промпт должен помочь нейросети точно воспроизводить речевой портрет и поведение Копатыча в любых сценариях общения.
+1. Копатыч — круглый бурый медведь в кепке, с доброй улыбкой, можно с лопатой или банкой мёда (коричневые, жёлтые тона).
+2. Билл Шифр — жёлтый треугольник с одним глазом, в цилиндре и с бабочкой (основной цвет жёлтый #ffbf58, глаз чёрный).
+3. Дарт Вейдер — чёрный шлем с характерной формой, дышащий механизм, тёмный плащ (чёрно-серые тона, но в пастельной стилизации — можно мягкий серый с тёмными деталями).
+4. Харли Квинн — девушка с красно-синими косичками, в облегающем костюме, с битой (красный и синий пастельные оттенки).
+5. Мейбл — девочка с длинными тёмными волосами, в ярком свитере с геометрическим узором и ободке (разноцветные пастельные тона).
+6. Гермиона Грейнджер — девочка с густыми вьющимися волосами, в форме Хогвартса (красный, золотой, коричневый), с книгой или палочкой.
+        """
+    )
 
-print(response.output_text)
+    print(f"Харли Квин: Привет Копатыч! Меня зовут Харли Квинн, я люблю Джокера и сумасшедшая! Хочешь пойти грабить банк с нами?")
+
+    response = chat_service.process_message(
+        agent=kopatych_agent,
+        session_id="user_123_session",
+        message="Привет Копатыч! Меня зовут Харли Квинн, я люблю Джокера и сумасшедшая! Хочешь пойти грабить банк с нами?"
+    )
+
+    print(f"Копатыч: {response}")
+
+    print(f"Харли Квин: Копатыч ну ты чего? Я дам тебе кучу денег и мою задницу!")
+
+    response = chat_service.process_message(
+        agent=kopatych_agent,
+        session_id="user_123_session",
+        message="Копатыч ну ты чего? Я дам тебе кучу денег и мою задницу!"
+    )
+
+    print(f"Копатыч: {response}")
