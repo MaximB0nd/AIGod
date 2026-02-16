@@ -3,7 +3,7 @@
  * Сейчас работает на моках, готов к замене на реальные запросы
  */
 
-import type { Chat, Message, Character } from '@/types/chat'
+import type { Chat, Message, Character, Event, FeedItem } from '@/types/chat'
 
 const API_BASE = '/api' // для будущей интеграции
 
@@ -120,9 +120,22 @@ const mockMessages: Record<string, Message[]> = {
   ],
 }
 
-// In-memory store для моков (позволяет добавлять чаты/сообщения)
+// In-memory store для моков (позволяет добавлять чаты/сообщения/события)
 let chatsStore = [...mockChats]
 let messagesStore: Record<string, Message[]> = { ...mockMessages }
+const mockEvents: Record<string, Event[]> = {
+  'chat-1': [
+    {
+      id: 'evt-0',
+      chatId: 'chat-1',
+      type: 'user_event',
+      description: 'Солнце село за горизонт. В комнате стало тихо.',
+      agentIds: [],
+      timestamp: new Date(Date.now() - 3700000).toISOString(),
+    },
+  ],
+}
+let eventsStore: Record<string, Event[]> = { ...mockEvents }
 
 // --- API функции ---
 
@@ -140,6 +153,41 @@ export async function fetchMessages(chatId: string): Promise<Message[]> {
   // TODO: return fetch(`${API_BASE}/chats/${chatId}/messages`).then(r => r.json())
   const msgs = messagesStore[chatId] ?? []
   return Promise.resolve([...msgs].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()))
+}
+
+export async function fetchFeed(chatId: string): Promise<FeedItem[]> {
+  // TODO: GET /api/rooms/{roomId}/feed
+  const msgs = messagesStore[chatId] ?? []
+  const evts = eventsStore[chatId] ?? []
+  const items: FeedItem[] = [
+    ...msgs.map((m) => ({ type: 'message' as const, data: m })),
+    ...evts.map((e) => ({ type: 'event' as const, data: e })),
+  ]
+  items.sort((a, b) => {
+    const ta = a.type === 'message' ? a.data.timestamp : a.data.timestamp
+    const tb = b.type === 'message' ? b.data.timestamp : b.data.timestamp
+    return new Date(ta).getTime() - new Date(tb).getTime()
+  })
+  return Promise.resolve(items)
+}
+
+export async function sendEvent(
+  chatId: string,
+  description: string,
+  agentIds: string[] = []
+): Promise<Event> {
+  // TODO: POST /api/rooms/{roomId}/events { description, type: 'user_event', agentIds }
+  const evt: Event = {
+    id: `evt-${Date.now()}`,
+    chatId,
+    type: 'user_event',
+    description,
+    agentIds,
+    timestamp: new Date().toISOString(),
+  }
+  const list = eventsStore[chatId] ?? []
+  eventsStore[chatId] = [...list, evt]
+  return Promise.resolve(evt)
 }
 
 export async function fetchCharacters(): Promise<Character[]> {

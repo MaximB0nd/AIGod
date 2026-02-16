@@ -10,11 +10,24 @@ interface ChatHeaderProps {
   onClose?: () => void
   onAddCharacter?: () => void
   onDelete?: () => void
+  onToggleSidebar?: () => void
+  sidebarCollapsed?: boolean
 }
 
-export function ChatHeader({ chat, onClose, onAddCharacter, onDelete }: ChatHeaderProps) {
+export function ChatHeader({ chat, onClose, onAddCharacter, onDelete, onToggleSidebar, sidebarCollapsed }: ChatHeaderProps) {
   return (
     <header className={styles.header}>
+      {onToggleSidebar && (
+        <button
+          type="button"
+          className={styles.headerToggleBtn}
+          onClick={onToggleSidebar}
+          title={sidebarCollapsed ? 'Развернуть панель' : 'Свернуть панель'}
+          aria-label={sidebarCollapsed ? 'Развернуть панель' : 'Свернуть панель'}
+        >
+          {sidebarCollapsed ? '▶' : '◀'}
+        </button>
+      )}
       {onClose && (
         <button
           type="button"
@@ -36,7 +49,7 @@ export function ChatHeader({ chat, onClose, onAddCharacter, onDelete }: ChatHead
       <div className={styles.headerInfo}>
         <h2 className={styles.headerTitle}>{chat.title}</h2>
         <span className={styles.headerSubtitle}>
-          {chat.characterIds.length} персонаж(ей)
+          {chat.characterIds.length} агентов
         </span>
       </div>
       <div className={styles.headerActions}>

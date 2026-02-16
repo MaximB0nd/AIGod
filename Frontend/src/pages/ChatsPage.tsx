@@ -89,15 +89,6 @@ export function ChatsPage() {
 
   return (
     <div className={`${styles.layout} ${isResizing ? styles.resizing : ''}`}>
-      <button
-        type="button"
-        className={styles.toggleBtn}
-        onClick={() => setSidebarCollapsed((v) => !v)}
-        title={sidebarCollapsed ? 'Развернуть панель' : 'Свернуть панель'}
-        aria-label={sidebarCollapsed ? 'Развернуть панель' : 'Свернуть панель'}
-      >
-        {sidebarCollapsed ? '▶' : '◀'}
-      </button>
       <div
         className={`${styles.sidebarWrapper} ${sidebarCollapsed ? styles.collapsed : ''} ${isResizing ? styles.resizing : ''}`}
         style={sidebarCollapsed ? undefined : { width: sidebarWidth, minWidth: sidebarWidth }}
@@ -113,10 +104,12 @@ export function ChatsPage() {
           onMouseDown={handleResizeStart}
         />
       )}
-      <div className={`${styles.mainWrapper} ${sidebarCollapsed ? styles.mainExpanded : ''}`}>
+      <div className={styles.mainWrapper}>
         <ChatView
           onAddCharacter={activeChat ? handleAddCharacter : undefined}
           onDeleteChat={activeChat ? handleDeleteChat : undefined}
+          onToggleSidebar={() => setSidebarCollapsed((v) => !v)}
+          sidebarCollapsed={sidebarCollapsed}
         />
       </div>
       <CreateChatModal

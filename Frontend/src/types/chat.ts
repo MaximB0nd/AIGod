@@ -1,5 +1,6 @@
 /**
  * Типы для чатов нейросетей
+ * Нейросети общаются друг с другом, пользователь — рассказчик событий
  */
 
 export interface Character {
@@ -46,3 +47,18 @@ export interface Chat {
   unreadCount?: number
   createdAt: string
 }
+
+/** Событие от рассказчика — адресуется всем или выбранным агентам */
+export interface Event {
+  id: string
+  chatId: string
+  type: 'user_event'
+  description: string
+  agentIds: string[] // пусто = всем агентам
+  timestamp: string
+}
+
+/** Элемент ленты: сообщение агента или событие рассказчика */
+export type FeedItem =
+  | { type: 'message'; data: Message }
+  | { type: 'event'; data: Event }

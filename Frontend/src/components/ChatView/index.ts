@@ -1,4 +1,5 @@
 export { ChatView } from './ChatView'
 export { MessageBubble } from './MessageBubble'
+export { EventBubble } from './EventBubble'
 export { ChatHeader } from './ChatHeader'
-export { MessageInput } from './MessageInput'
+export { NarratorInput } from './NarratorInput'

@@ -6,30 +6,6 @@
   position: relative;
 }
 
-.toggleBtn {
-  position: absolute;
-  top: 12px;
-  left: 12px;
-  z-index: 10;
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1rem;
-  color: var(--tg-text, #1c1e21);
-  background: var(--tg-sidebar-bg, #f0f2f5);
-  border: 1px solid var(--tg-border, #e4e6eb);
-  border-radius: 8px;
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-}
-
-.toggleBtn:hover {
-  background: var(--tg-hover, rgba(0, 0, 0, 0.05));
-}
-
 .sidebarWrapper {
   width: 360px;
   min-width: 360px;
@@ -84,10 +60,6 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-}
-
-.mainWrapper.mainExpanded {
-  padding-left: 52px;
 }
 
 .loading {

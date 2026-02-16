@@ -1,21 +1,24 @@
 /**
- * Окно чата (правая панель в стиле Telegram)
+ * Окно чата — нейросети общаются, пользователь пишет события от рассказчика
  */
 
 import { useRef, useEffect, useCallback } from 'react'
 import { useChat } from '@/context/ChatContext'
 import { MessageBubble } from './MessageBubble'
+import { EventBubble } from './EventBubble'
 import { ChatHeader } from './ChatHeader'
-import { MessageInput } from './MessageInput'
+import { NarratorInput } from './NarratorInput'
 import styles from './ChatView.module.css'
 
 interface ChatViewProps {
   onAddCharacter?: () => void
   onDeleteChat?: () => void
+  onToggleSidebar?: () => void
+  sidebarCollapsed?: boolean
 }
 
-export function ChatView({ onAddCharacter, onDeleteChat }: ChatViewProps) {
-  const { activeChat, messages, characters, selectChat } = useChat()
+export function ChatView({ onAddCharacter, onDeleteChat, onToggleSidebar, sidebarCollapsed }: ChatViewProps) {
+  const { activeChat, feed, characters, selectChat } = useChat()
   const scrollRef = useRef<HTMLDivElement>(null)
 
   const handleCloseChat = useCallback(() => {
@@ -24,14 +27,29 @@ export function ChatView({ onAddCharacter, onDeleteChat }: ChatViewProps) {
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
-  }, [messages])
+  }, [feed])
 
   if (!activeChat) {
     return (
-      <div className={styles.empty}>
-        <div className={styles.emptyContent}>
+      <div className={styles.chat}>
+        {onToggleSidebar && (
+          <header className={styles.header}>
+            <button
+              type="button"
+              className={styles.headerToggleBtn}
+              onClick={onToggleSidebar}
+              title={sidebarCollapsed ? 'Развернуть панель' : 'Свернуть панель'}
+              aria-label={sidebarCollapsed ? 'Развернуть панель' : 'Свернуть панель'}
+            >
+              {sidebarCollapsed ? '▶' : '◀'}
+            </button>
+          </header>
+        )}
+        <div className={styles.empty}>
+          <div className={styles.emptyContent}>
           <p>Выберите чат или создайте новый</p>
-          <span>Чаты нейросетей — персонажи общаются друг с другом</span>
+          <span>Нейросети общаются, вы — рассказчик событий</span>
+        </div>
         </div>
       </div>
     )
@@ -46,20 +64,26 @@ export function ChatView({ onAddCharacter, onDeleteChat }: ChatViewProps) {
         onClose={handleCloseChat}
         onAddCharacter={onAddCharacter}
         onDelete={onDeleteChat}
+        onToggleSidebar={onToggleSidebar}
+        sidebarCollapsed={sidebarCollapsed}
       />
       <div className={styles.messages} ref={scrollRef}>
         <div className={styles.messagesInner}>
-          {messages.map((msg) => (
-            <MessageBubble
-              key={msg.id}
-              message={msg}
-              character={getCharacter(msg.characterId)}
-              isOutgoing={false}
-            />
-          ))}
+          {feed.map((item) =>
+            item.type === 'message' ? (
+              <MessageBubble
+                key={item.data.id}
+                message={item.data}
+                character={getCharacter(item.data.characterId)}
+                isOutgoing={false}
+              />
+            ) : (
+              <EventBubble key={item.data.id} event={item.data} characters={characters} />
+            )
+          )}
         </div>
       </div>
-      <MessageInput chat={activeChat} />
+      <NarratorInput chat={activeChat} />
     </div>
   )
 }
