@@ -185,3 +185,39 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* Контекстное меню */
+.contextMenu {
+  position: fixed;
+  z-index: 1000;
+  min-width: 180px;
+  padding: 6px 0;
+  background: var(--tg-sidebar-bg, #fff);
+  border: 1px solid var(--tg-border, #e4e6eb);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  display: flex;
+  flex-direction: column;
+}
+
+.contextMenuItem {
+  width: 100%;
+  padding: 10px 16px;
+  border: none;
+  background: transparent;
+  font-size: 0.9375rem;
+  color: var(--tg-text, #1c1e21);
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s;
+}
+
+.contextMenuItem:hover {
+  background: var(--tg-hover, rgba(0, 0, 0, 0.05));
+}
+
+.contextMenuDanger:hover {
+  background: rgba(220, 53, 69, 0.1);
+  color: #dc3545;
+}

@@ -2,6 +2,7 @@
  * Список чатов (левая панель в стиле Telegram)
  */
 
+import type { Chat } from '@/types/chat'
 import { useChat } from '@/context/ChatContext'
 import { useAuth } from '@/context/AuthContext'
 import { ChatListItem } from './ChatListItem'
@@ -9,9 +10,11 @@ import styles from './ChatList.module.css'
 
 interface ChatListProps {
   onCreateChat: () => void
+  onDeleteChat: (chat: Chat) => void
+  onAddCharacter: (chat: Chat) => void
 }
 
-export function ChatList({ onCreateChat }: ChatListProps) {
+export function ChatList({ onCreateChat, onDeleteChat, onAddCharacter }: ChatListProps) {
   const { chats, activeChat, selectChat } = useChat()
   const { user, logout } = useAuth()
 
@@ -48,6 +51,8 @@ export function ChatList({ onCreateChat }: ChatListProps) {
             chat={chat}
             isActive={activeChat?.id === chat.id}
             onClick={() => selectChat(chat)}
+            onDelete={onDeleteChat}
+            onAddCharacter={onAddCharacter}
           />
         ))}
       </ul>

@@ -3,6 +3,7 @@
  */
 
 import { useState, useCallback, useEffect, useRef } from 'react'
+import type { Chat } from '@/types/chat'
 import { useChat } from '@/context/ChatContext'
 import { ChatList } from '@/components/ChatList'
 import { ChatView } from '@/components/ChatView'
@@ -32,6 +33,7 @@ export function ChatsPage() {
   const { activeChat, isLoading, deleteChat } = useChat()
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showAddCharModal, setShowAddCharModal] = useState(false)
+  const [chatForAddModal, setChatForAddModal] = useState<Chat | null>(null)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [sidebarWidth, setSidebarWidth] = useState(getStoredWidth)
   const [isResizing, setIsResizing] = useState(false)
@@ -69,6 +71,12 @@ export function ChatsPage() {
   }, [isResizing])
 
   const handleAddCharacter = useCallback(() => {
+    setChatForAddModal(null)
+    setShowAddCharModal(true)
+  }, [])
+
+  const handleAddCharacterForChat = useCallback((chat: Chat) => {
+    setChatForAddModal(chat)
     setShowAddCharModal(true)
   }, [])
 
@@ -78,6 +86,20 @@ export function ChatsPage() {
       await deleteChat(activeChat.id)
     }
   }, [activeChat, deleteChat])
+
+  const handleDeleteChatFromList = useCallback(
+    async (chat: Chat) => {
+      if (window.confirm(`Удалить чат «${chat.title}»?`)) {
+        await deleteChat(chat.id)
+      }
+    },
+    [deleteChat]
+  )
+
+  const handleCloseAddCharModal = useCallback(() => {
+    setShowAddCharModal(false)
+    setChatForAddModal(null)
+  }, [])
 
   if (isLoading) {
     return (
@@ -93,7 +115,11 @@ export function ChatsPage() {
         className={`${styles.sidebarWrapper} ${sidebarCollapsed ? styles.collapsed : ''} ${isResizing ? styles.resizing : ''}`}
         style={sidebarCollapsed ? undefined : { width: sidebarWidth, minWidth: sidebarWidth }}
       >
-        <ChatList onCreateChat={() => setShowCreateModal(true)} />
+        <ChatList
+          onCreateChat={() => setShowCreateModal(true)}
+          onDeleteChat={handleDeleteChatFromList}
+          onAddCharacter={handleAddCharacterForChat}
+        />
       </div>
       {!sidebarCollapsed && (
         <div
@@ -118,8 +144,8 @@ export function ChatsPage() {
       />
       <AddCharacterModal
         isOpen={showAddCharModal}
-        chat={activeChat}
-        onClose={() => setShowAddCharModal(false)}
+        chat={chatForAddModal ?? activeChat}
+        onClose={handleCloseAddCharModal}
       />
     </div>
   )
