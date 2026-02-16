@@ -16,5 +16,11 @@ class Config:
     # Agent settings
     MAX_MEMORIES_PER_AGENT = int(os.getenv("MAX_MEMORIES_PER_AGENT", "50"))
     MEMORY_SUMMARY_THRESHOLD = int(os.getenv("MEMORY_SUMMARY_THRESHOLD", "20"))
-    
+
+    # JWT Auth
+    SECRET_KEY = os.getenv("SECRET_KEY", "aigod-hackathon-change-me-in-production-1234567890")
+    ALGORITHM = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
+
+
 config = Config()
