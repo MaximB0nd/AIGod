@@ -9,17 +9,18 @@ import { ChatList } from '@/components/ChatList'
 import { ChatView } from '@/components/ChatView'
 import { CreateChatModal } from '@/components/CreateChatModal'
 import { AddCharacterModal } from '@/components/AddCharacterModal'
+import { STORAGE_KEYS } from '@/utils/storage'
 import styles from './ChatsPage.module.css'
 
 const SIDEBAR_MIN_WIDTH = 240
 const SIDEBAR_MAX_WIDTH = 600
 const SIDEBAR_DEFAULT_WIDTH = 360
-const STORAGE_KEY = 'chats-sidebar-width'
+const STORAGE_KEY = STORAGE_KEYS.SIDEBAR_WIDTH
 
 const RIGHT_PANEL_MIN_WIDTH = 240
 const RIGHT_PANEL_MAX_WIDTH = 600
 const RIGHT_PANEL_DEFAULT_WIDTH = 320
-const RIGHT_STORAGE_KEY = 'chats-right-panel-width'
+const RIGHT_STORAGE_KEY = STORAGE_KEYS.RIGHT_PANEL_WIDTH
 
 function getStoredWidth(): number {
   try {
@@ -48,11 +49,12 @@ function getStoredRightWidth(): number {
 }
 
 export function ChatsPage() {
-  const { activeChat, isLoading, deleteChat } = useChat()
+  const { activeChat, isLoading, deleteChat, refreshChatsSilent } = useChat()
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showAddCharModal, setShowAddCharModal] = useState(false)
   const [chatForAddModal, setChatForAddModal] = useState<Chat | null>(null)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const prevSidebarCollapsedRef = useRef(sidebarCollapsed)
   const [sidebarWidth, setSidebarWidth] = useState(getStoredWidth)
   const [rightPanelCollapsed, setRightPanelCollapsed] = useState(true)
   const [rightPanelWidth, setRightPanelWidth] = useState(getStoredRightWidth)
@@ -138,8 +140,11 @@ export function ChatsPage() {
 
   const handleDeleteChatFromList = useCallback(
     async (chat: Chat) => {
-      if (window.confirm(`Удалить чат «${chat.title}»?`)) {
+      if (!window.confirm(`Удалить чат «${chat.title}»?`)) return
+      try {
         await deleteChat(chat.id)
+      } catch {
+        window.alert('Не удалось удалить чат. Попробуйте позже.')
       }
     },
     [deleteChat]
@@ -156,6 +161,17 @@ export function ChatsPage() {
       return !prev
     })
   }, [])
+
+  useEffect(() => {
+    refreshChatsSilent()
+  }, [refreshChatsSilent])
+
+  useEffect(() => {
+    if (prevSidebarCollapsedRef.current && !sidebarCollapsed) {
+      refreshChatsSilent()
+    }
+    prevSidebarCollapsedRef.current = sidebarCollapsed
+  }, [sidebarCollapsed, refreshChatsSilent])
 
   const handleToggleRightPanel = useCallback(() => {
     setRightPanelCollapsed((prev) => {

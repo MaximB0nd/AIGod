@@ -59,6 +59,15 @@
   padding: 20px 24px;
 }
 
+.error {
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  font-size: 0.875rem;
+  color: #c0392b;
+  background: #fdecea;
+  border-radius: var(--radius-card);
+}
+
 .empty {
   margin: 0;
   color: var(--tg-muted);
@@ -102,5 +111,16 @@
 
 .itemDesc {
   font-size: 0.8125rem;
+  color: var(--tg-muted);
+}
+
+.item:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.adding {
+  margin-left: auto;
+  font-size: 0.75rem;
   color: var(--tg-muted);
 }

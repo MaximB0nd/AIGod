@@ -1,16 +1,25 @@
 /**
  * Страница авторизации и регистрации
+ * При монтировании очищает все данные приложения (токены, настройки),
+ * чтобы избежать конфликтов при первом заходе или после выхода.
  */
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
+import { clearAllAppStorage } from '@/utils/storage'
 import styles from './AuthPage.module.css'
 
 type Tab = 'login' | 'register'
 
 export function AuthPage() {
   const { login, register } = useAuth()
+  const navigate = useNavigate()
   const [tab, setTab] = useState<Tab>('login')
+
+  useEffect(() => {
+    clearAllAppStorage()
+  }, [])
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -28,13 +37,14 @@ export function AuthPage() {
       setIsSubmitting(true)
       try {
         await login({ email: loginEmail, password: loginPassword })
+        navigate('/', { replace: true })
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Ошибка входа')
       } finally {
         setIsSubmitting(false)
       }
     },
-    [login, loginEmail, loginPassword]
+    [login, loginEmail, loginPassword, navigate]
   )
 
   const handleRegister = useCallback(
@@ -44,13 +54,14 @@ export function AuthPage() {
       setIsSubmitting(true)
       try {
         await register({ email: regEmail, password: regPassword, username: regUsername })
+        navigate('/', { replace: true })
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Ошибка регистрации')
       } finally {
         setIsSubmitting(false)
       }
     },
-    [register, regEmail, regPassword, regUsername]
+    [register, regEmail, regPassword, regUsername, navigate]
   )
 
   const switchTab = useCallback((t: Tab) => {

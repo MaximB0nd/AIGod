@@ -13,8 +13,10 @@ import {
 } from 'react'
 import type { AuthUser, AuthResponse, RegisterRequest, LoginRequest } from '@/types/auth'
 import * as authApi from '@/api/auth'
+import { setTokenGetter, setUnauthorizedHandler } from '@/api/client'
+import { clearAllAppStorage, STORAGE_KEYS } from '@/utils/storage'
 
-const STORAGE_KEY = 'aigod_auth'
+const STORAGE_KEY = STORAGE_KEYS.AUTH
 
 interface StoredAuth {
   user: AuthUser
@@ -56,7 +58,7 @@ function saveAuth(data: AuthResponse): void {
 }
 
 function clearAuth(): void {
-  localStorage.removeItem(STORAGE_KEY)
+  clearAllAppStorage()
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -71,6 +73,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setToken(stored.token)
     }
     setIsLoading(false)
+  }, [])
+
+  useEffect(() => {
+    setTokenGetter(() => token)
+  }, [token])
+
+  useEffect(() => {
+    setUnauthorizedHandler(() => {
+      clearAuth()
+      setUser(null)
+      setToken(null)
+    })
+    return () => setUnauthorizedHandler(null)
   }, [])
 
   const login = useCallback(async (data: LoginRequest) => {

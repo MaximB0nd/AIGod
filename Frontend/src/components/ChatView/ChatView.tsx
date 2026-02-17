@@ -20,7 +20,7 @@ interface ChatViewProps {
 }
 
 export function ChatView({ onAddCharacter, onToggleSidebar, sidebarCollapsed, onToggleRightPanel, rightPanelCollapsed }: ChatViewProps) {
-  const { activeChat, feed, characters, selectChat } = useChat()
+  const { activeChat, feed, characters, selectChat, isMessagesLoading } = useChat()
   const scrollRef = useRef<HTMLDivElement>(null)
   const [showGroupInfo, setShowGroupInfo] = useState(false)
 
@@ -93,18 +93,25 @@ export function ChatView({ onAddCharacter, onToggleSidebar, sidebarCollapsed, on
       />
       <div className={styles.messages} ref={scrollRef}>
         <div className={styles.messagesInner}>
-          {feed.map((item) =>
-            item.type === 'message' ? (
-              <MessageBubble
-                key={item.data.id}
-                message={item.data}
-                character={getCharacter(item.data.characterId)}
-                isOutgoing={false}
-              />
-            ) : (
-              <EventBubble key={item.data.id} event={item.data} characters={characters} />
-            )
+          {isMessagesLoading && (
+            <div className={styles.loading}>
+              <span className={styles.loadingSpinner} />
+              <p>Загрузка ленты...</p>
+            </div>
           )}
+          {!isMessagesLoading &&
+            feed.map((item) =>
+              item.type === 'message' ? (
+                <MessageBubble
+                  key={item.data.id}
+                  message={item.data}
+                  character={getCharacter(item.data.characterId)}
+                  isOutgoing={false}
+                />
+              ) : (
+                <EventBubble key={item.data.id} event={item.data} characters={characters} />
+              )
+            )}
         </div>
       </div>
       <NarratorInput chat={activeChat} />

@@ -1,9 +1,11 @@
 /**
- * Модалка создания чата
+ * Модалка создания комнаты
+ * Контракт: POST /api/rooms { name, description? }
  */
 
 import { useState, useCallback } from 'react'
 import { useChat } from '@/context/ChatContext'
+import { ApiError } from '@/api/client'
 import styles from './CreateChatModal.module.css'
 
 interface CreateChatModalProps {
@@ -12,35 +14,40 @@ interface CreateChatModalProps {
 }
 
 export function CreateChatModal({ isOpen, onClose }: CreateChatModalProps) {
-  const { characters, createChat } = useChat()
-  const [title, setTitle] = useState('')
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
-
-  const toggleCharacter = useCallback((id: string) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }, [])
+  const { createChat } = useChat()
+  const [name, setName] = useState('')
+  const [description, setDescription] = useState('')
+  const [isCreating, setIsCreating] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault()
-      const trimmed = title.trim()
-      if (!trimmed || selectedIds.size === 0) return
-      await createChat({ title: trimmed, characterIds: [...selectedIds] })
-      setTitle('')
-      setSelectedIds(new Set())
-      onClose()
+      const trimmedName = name.trim()
+      if (!trimmedName || isCreating) return
+      setIsCreating(true)
+      setError(null)
+      try {
+        await createChat({
+          title: trimmedName,
+          description: description.trim() || undefined,
+        })
+        setName('')
+        setDescription('')
+        onClose()
+      } catch (err) {
+        setError(err instanceof ApiError ? err.message : err instanceof Error ? err.message : 'Ошибка создания комнаты')
+      } finally {
+        setIsCreating(false)
+      }
     },
-    [title, selectedIds, createChat, onClose]
+    [name, description, createChat, onClose, isCreating]
   )
 
   const handleClose = useCallback(() => {
-    setTitle('')
-    setSelectedIds(new Set())
+    setName('')
+    setDescription('')
+    setError(null)
     onClose()
   }, [onClose])
 
@@ -50,37 +57,33 @@ export function CreateChatModal({ isOpen, onClose }: CreateChatModalProps) {
     <div className={styles.overlay} onClick={handleClose}>
       <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
         <div className={styles.header}>
-          <h2>Новый чат</h2>
+          <h2>Новая комната</h2>
           <button type="button" className={styles.closeBtn} onClick={handleClose} aria-label="Закрыть">
             ×
           </button>
         </div>
         <form onSubmit={handleSubmit} className={styles.form}>
+          {error && <p className={styles.error}>{error}</p>}
           <label className={styles.label}>
-            Название чата
+            Название комнаты
             <input
               type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
               placeholder="Например: Философия vs Юмор"
               className={styles.input}
               autoFocus
             />
           </label>
           <label className={styles.label}>
-            Персонажи (выберите минимум одного)
-            <div className={styles.charList}>
-              {characters.map((c) => (
-                <label key={c.id} className={styles.charItem}>
-                  <input
-                    type="checkbox"
-                    checked={selectedIds.has(c.id)}
-                    onChange={() => toggleCharacter(c.id)}
-                  />
-                  <span>{c.name}</span>
-                </label>
-              ))}
-            </div>
+            Описание (необязательно)
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Кратко опишите комнату"
+              className={styles.textarea}
+              rows={3}
+            />
           </label>
           <div className={styles.actions}>
             <button type="button" className={styles.cancelBtn} onClick={handleClose}>
@@ -89,9 +92,9 @@ export function CreateChatModal({ isOpen, onClose }: CreateChatModalProps) {
             <button
               type="submit"
               className={styles.submitBtn}
-              disabled={!title.trim() || selectedIds.size === 0}
+              disabled={!name.trim() || isCreating}
             >
-              Создать
+              {isCreating ? 'Создание...' : 'Создать'}
             </button>
           </div>
         </form>

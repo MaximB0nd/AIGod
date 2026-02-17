@@ -1,59 +1,71 @@
 /**
- * API для комнат (групп)
- * Заготовки — готовы к подключению бэкенда
+ * API комнат
  * @see docs/BACKEND_API_REQUIREMENTS.md
  */
 
+import { apiFetch } from './client'
 import type { Room } from '@/types/room'
 
-const API_BASE = import.meta.env.VITE_API_URL ?? '/api'
+export interface CreateRoomRequest {
+  name: string
+  description?: string
+}
+
+export interface UpdateRoomRequest {
+  name?: string
+  description?: string
+  speed?: number
+}
+
+export interface RoomsListResponse {
+  rooms: Room[]
+}
 
 /**
- * Получить информацию по комнате
- * GET /api/rooms/{roomId}
- * @param fallback — для мока: данные из чата (убрать после подключения бэкенда)
+ * POST /api/rooms — создать комнату
  */
-export async function fetchRoom(
-  roomId: string,
-  fallback?: { name?: string; agentCount?: number }
-): Promise<Room | null> {
-  // TODO: подключить бэкенд
-  // const res = await fetch(`${API_BASE}/rooms/${roomId}`, {
-  //   headers: { Authorization: `Bearer ${token}` },
-  // })
-  // if (!res.ok) return null
-  // return res.json()
-
-  // Мок для разработки
-  return Promise.resolve({
-    id: roomId,
-    name: fallback?.name ?? 'Комната',
-    description: 'Описание группы появится после подключения бэкенда.',
-    speed: 1.0,
-    createdAt: new Date().toISOString(),
-    agentCount: fallback?.agentCount ?? 0,
+export async function createRoom(data: CreateRoomRequest): Promise<Room> {
+  return apiFetch<Room>('/api/rooms', {
+    method: 'POST',
+    body: JSON.stringify(data),
   })
 }
 
 /**
- * Обновить информацию о комнате
- * PATCH /api/rooms/{roomId}
+ * GET /api/rooms — список комнат пользователя
+ */
+export async function fetchRooms(): Promise<Room[]> {
+  const res = await apiFetch<RoomsListResponse>('/api/rooms')
+  return res.rooms ?? []
+}
+
+/**
+ * GET /api/rooms/{roomId} — информация о комнате
+ */
+export async function fetchRoom(roomId: string): Promise<Room | null> {
+  try {
+    return await apiFetch<Room>(`/api/rooms/${roomId}`)
+  } catch {
+    return null
+  }
+}
+
+/**
+ * PATCH /api/rooms/{roomId} — обновить комнату
  */
 export async function updateRoom(
   roomId: string,
-  data: { name?: string; description?: string; speed?: number }
-): Promise<Room | null> {
-  // TODO: подключить бэкенд
-  // const res = await fetch(`${API_BASE}/rooms/${roomId}`, {
-  //   method: 'PATCH',
-  //   headers: {
-  //     'Content-Type': 'application/json',
-  //     Authorization: `Bearer ${token}`,
-  //   },
-  //   body: JSON.stringify(data),
-  // })
-  // if (!res.ok) return null
-  // return res.json()
+  data: UpdateRoomRequest
+): Promise<Room> {
+  return apiFetch<Room>(`/api/rooms/${roomId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  })
+}
 
-  return Promise.resolve(null)
+/**
+ * DELETE /api/rooms/{roomId} — удалить комнату
+ */
+export async function deleteRoom(roomId: string): Promise<void> {
+  await apiFetch(`/api/rooms/${roomId}`, { method: 'DELETE' })
 }

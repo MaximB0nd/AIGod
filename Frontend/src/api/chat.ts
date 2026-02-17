@@ -1,174 +1,112 @@
 /**
- * API для чатов нейросетей
- * Сейчас работает на моках, готов к замене на реальные запросы
+ * API чатов — маппинг Room/Agent на Chat/Character
+ * Использует rooms, agents, events, feed, messages
  */
 
 import type { Chat, Message, Character, Event, FeedItem } from '@/types/chat'
+import * as roomsApi from './rooms'
+import * as agentsApi from './agents'
+import * as eventsApi from './events'
+import * as feedApi from './feed'
+import * as messagesApi from './messages'
+import { CHARACTER_PRESETS } from '@/constants/characterPresets'
 
-const API_BASE = '/api' // для будущей интеграции
-
-// --- Моки ---
-
-const mockCharacters: Character[] = [
-  {
-    id: 'char-1',
-    name: 'GPT-Философ',
-    description: 'Любит рассуждать о смысле жизни',
-    systemPrompt: 'Ты философ, который задаёт глубокие вопросы.',
-  },
-  {
-    id: 'char-2',
-    name: 'Клоун-нейросеть',
-    description: 'Шутит и развлекает',
-    systemPrompt: 'Ты весёлый клоун, который шутит.',
-  },
-  {
-    id: 'char-3',
-    name: 'Учёный',
-    description: 'Объясняет сложное простыми словами',
-    systemPrompt: 'Ты учёный, объясняющий науку доступно.',
-  },
-]
-
-const mockChats: Chat[] = [
-  {
-    id: 'chat-1',
-    title: 'Философия vs Юмор',
-    characterIds: ['char-1', 'char-2'],
-    lastMessage: {
-      content: 'А что если смысл жизни — в смехе?',
-      timestamp: new Date().toISOString(),
-      characterId: 'char-2',
-    },
-    unreadCount: 2,
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 'chat-2',
-    title: 'Научный кружок',
-    characterIds: ['char-1', 'char-3'],
-    lastMessage: {
-      content: 'Квантовая суперпозиция — это когда кот и жив, и мёртв',
-      timestamp: new Date(Date.now() - 86400000).toISOString(),
-      characterId: 'char-3',
-    },
-    createdAt: new Date().toISOString(),
-  },
-]
-
-const mockMessages: Record<string, Message[]> = {
-  'chat-1': [
-    {
-      id: 'msg-1',
-      chatId: 'chat-1',
-      characterId: 'char-1',
-      content: 'В чём смысл бытия?',
-      timestamp: new Date(Date.now() - 3600000).toISOString(),
-      isRead: true,
-    },
-    {
-      id: 'msg-2',
-      chatId: 'chat-1',
-      characterId: 'char-2',
-      content: 'В смехе! Ха-ха!',
-      timestamp: new Date(Date.now() - 3500000).toISOString(),
-      isRead: true,
-    },
-    {
-      id: 'msg-3',
-      chatId: 'chat-1',
-      characterId: 'char-1',
-      content: 'Но смех — это лишь реакция нейронов.',
-      timestamp: new Date(Date.now() - 3400000).toISOString(),
-      isRead: true,
-    },
-    {
-      id: 'msg-4',
-      chatId: 'chat-1',
-      characterId: 'char-2',
-      content: 'А что если смысл жизни — в смехе?',
-      timestamp: new Date().toISOString(),
-      isRead: false,
-      reactions: [{ emoji: '👍', characterId: 'char-1' }],
-    },
-  ],
-  'chat-2': [
-    {
-      id: 'msg-5',
-      chatId: 'chat-2',
-      characterId: 'char-3',
-      content: 'Давайте обсудим квантовую механику.',
-      timestamp: new Date(Date.now() - 7200000).toISOString(),
-      isRead: true,
-    },
-    {
-      id: 'msg-6',
-      chatId: 'chat-2',
-      characterId: 'char-1',
-      content: 'Интересно. А как это связано с сознанием?',
-      timestamp: new Date(Date.now() - 7100000).toISOString(),
-      isRead: true,
-    },
-    {
-      id: 'msg-7',
-      chatId: 'chat-2',
-      characterId: 'char-3',
-      content: 'Квантовая суперпозиция — это когда кот и жив, и мёртв',
-      timestamp: new Date(Date.now() - 86400000).toISOString(),
-      isRead: true,
-    },
-  ],
+function roomToChat(room: Awaited<ReturnType<typeof roomsApi.fetchRoom>>, agentIds: string[]): Chat | null {
+  if (!room) return null
+  return {
+    id: room.id,
+    title: room.name,
+    characterIds: agentIds,
+    createdAt: room.createdAt,
+  }
 }
 
-// In-memory store для моков (позволяет добавлять чаты/сообщения/события)
-let chatsStore = [...mockChats]
-let messagesStore: Record<string, Message[]> = { ...mockMessages }
-const mockEvents: Record<string, Event[]> = {
-  'chat-1': [
-    {
-      id: 'evt-0',
-      chatId: 'chat-1',
-      type: 'user_event',
-      description: 'Солнце село за горизонт. В комнате стало тихо.',
-      agentIds: [],
-      timestamp: new Date(Date.now() - 3700000).toISOString(),
-    },
-  ],
+function agentToCharacter(a: { id: string; name: string; avatar?: string; mood?: { mood: string; level: number } }): Character {
+  return {
+    id: a.id,
+    name: a.name,
+    avatar: a.avatar,
+    description: a.mood?.mood,
+  }
 }
-let eventsStore: Record<string, Event[]> = { ...mockEvents }
 
-// --- API функции ---
+export function getCharacterPresets() {
+  return CHARACTER_PRESETS
+}
 
 export async function fetchChats(): Promise<Chat[]> {
-  // TODO: return fetch(`${API_BASE}/chats`).then(r => r.json())
-  return Promise.resolve([...chatsStore])
+  const roomList = await roomsApi.fetchRooms()
+  const chats: Chat[] = []
+  for (const room of roomList) {
+    const agents = await agentsApi.fetchAgents(room.id)
+    const chat = roomToChat(room, agents.map((a) => a.id))
+    if (chat) {
+      if (agents.length > 0) {
+        const last = agents[agents.length - 1]
+        chat.lastMessage = {
+          content: last.mood?.mood ?? '',
+          timestamp: new Date().toISOString(),
+          characterId: last.id,
+        }
+      }
+      chats.push(chat)
+    }
+  }
+  return chats
 }
 
-export async function fetchChat(id: string): Promise<Chat | null> {
-  // TODO: return fetch(`${API_BASE}/chats/${id}`).then(r => r.json())
-  return Promise.resolve(chatsStore.find((c) => c.id === id) ?? null)
+export async function fetchChat(chatId: string): Promise<Chat | null> {
+  const room = await roomsApi.fetchRoom(chatId)
+  if (!room) return null
+  const agents = await agentsApi.fetchAgents(chatId)
+  return roomToChat(room, agents.map((a) => a.id))
 }
 
 export async function fetchMessages(chatId: string): Promise<Message[]> {
-  // TODO: return fetch(`${API_BASE}/chats/${chatId}/messages`).then(r => r.json())
-  const msgs = messagesStore[chatId] ?? []
-  return Promise.resolve([...msgs].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()))
+  const items = await feedApi.fetchFeed(chatId)
+  const agents = await agentsApi.fetchAgents(chatId)
+  const agentMap = new Map(agents.map((a) => [a.id, a]))
+
+  return items
+    .filter((i): i is typeof i & { type: 'message' } => i.type === 'message')
+    .map((i) => ({
+      id: i.id,
+      chatId,
+      characterId: i.agentId ?? '',
+      content: i.text,
+      timestamp: i.timestamp,
+      isRead: true,
+    }))
 }
 
 export async function fetchFeed(chatId: string): Promise<FeedItem[]> {
-  // TODO: GET /api/rooms/{roomId}/feed
-  const msgs = messagesStore[chatId] ?? []
-  const evts = eventsStore[chatId] ?? []
-  const items: FeedItem[] = [
-    ...msgs.map((m) => ({ type: 'message' as const, data: m })),
-    ...evts.map((e) => ({ type: 'event' as const, data: e })),
-  ]
-  items.sort((a, b) => {
-    const ta = a.type === 'message' ? a.data.timestamp : a.data.timestamp
-    const tb = b.type === 'message' ? b.data.timestamp : b.data.timestamp
-    return new Date(ta).getTime() - new Date(tb).getTime()
+  const items = await feedApi.fetchFeed(chatId, 20)
+  return items.map((i) => {
+    if (i.type === 'message') {
+      return {
+        type: 'message' as const,
+        data: {
+          id: i.id,
+          chatId,
+          characterId: i.agentId ?? '',
+          content: i.text ?? '',
+          timestamp: i.timestamp,
+          isRead: true,
+        },
+      }
+    }
+    return {
+      type: 'event' as const,
+      data: {
+        id: i.id,
+        chatId,
+        type: 'user_event' as const,
+        description: (i as { description?: string }).description ?? '',
+        agentIds: (i as { agentIds?: string[] }).agentIds ?? [],
+        timestamp: i.timestamp,
+      },
+    }
   })
-  return Promise.resolve(items)
 }
 
 export async function sendEvent(
@@ -176,79 +114,101 @@ export async function sendEvent(
   description: string,
   agentIds: string[] = []
 ): Promise<Event> {
-  // TODO: POST /api/rooms/{roomId}/events { description, type: 'user_event', agentIds }
-  const evt: Event = {
-    id: `evt-${Date.now()}`,
+  if (agentIds.length === 0) {
+    const evt = await eventsApi.broadcastEvent(chatId, { description })
+    return {
+      id: evt.id,
+      chatId,
+      type: 'user_event',
+      description: evt.description,
+      agentIds: evt.agentIds,
+      timestamp: evt.timestamp,
+    }
+  }
+  const evt = await eventsApi.createEvent(chatId, {
+    description,
+    type: 'user_event',
+    agentIds,
+  })
+  return {
+    id: evt.id,
     chatId,
     type: 'user_event',
-    description,
-    agentIds,
-    timestamp: new Date().toISOString(),
+    description: evt.description,
+    agentIds: evt.agentIds,
+    timestamp: evt.timestamp,
   }
-  const list = eventsStore[chatId] ?? []
-  eventsStore[chatId] = [...list, evt]
-  return Promise.resolve(evt)
 }
 
-export async function fetchCharacters(): Promise<Character[]> {
-  // TODO: return fetch(`${API_BASE}/characters`).then(r => r.json())
-  return Promise.resolve([...mockCharacters])
+export async function fetchCharacters(roomId: string): Promise<Character[]> {
+  const agents = await agentsApi.fetchAgents(roomId)
+  return agents.map(agentToCharacter)
 }
 
-export async function createChat(data: { title: string; characterIds: string[] }): Promise<Chat> {
-  // TODO: return fetch(`${API_BASE}/chats`, { method: 'POST', body: JSON.stringify(data) }).then(r => r.json())
-  const chat: Chat = {
-    id: `chat-${Date.now()}`,
-    title: data.title,
-    characterIds: data.characterIds,
-    createdAt: new Date().toISOString(),
+export async function createChat(data: {
+  title: string
+  description?: string
+}): Promise<Chat> {
+  const room = await roomsApi.createRoom({
+    name: data.title,
+    ...(data.description !== undefined && data.description !== '' && { description: data.description }),
+  })
+
+  return {
+    id: room.id,
+    title: room.name,
+    characterIds: [],
+    createdAt: room.createdAt,
   }
-  chatsStore = [...chatsStore, chat]
-  messagesStore[chat.id] = []
-  return Promise.resolve(chat)
 }
 
-export async function addCharacterToChat(chatId: string, characterId: string): Promise<Chat | null> {
-  // TODO: return fetch(`${API_BASE}/chats/${chatId}/characters`, { method: 'POST', body: JSON.stringify({ characterId }) }).then(r => r.json())
-  const chat = chatsStore.find((c) => c.id === chatId)
-  if (!chat || chat.characterIds.includes(characterId)) return Promise.resolve(chat ?? null)
-  chat.characterIds = [...chat.characterIds, characterId]
-  chatsStore = chatsStore.map((c) => (c.id === chatId ? { ...chat } : c))
-  return Promise.resolve(chat)
+export async function addCharacterToChat(
+  chatId: string,
+  presetId: string
+): Promise<Chat | null> {
+  const preset = CHARACTER_PRESETS.find((p) => p.id === presetId)
+  if (!preset) return null
+
+  const agent = await agentsApi.createAgent(chatId, {
+    name: preset.name,
+    character: preset.character,
+  })
+
+  const chat = await fetchChat(chatId)
+  if (!chat) return null
+  return {
+    ...chat,
+    characterIds: [...chat.characterIds, agent.id],
+  }
 }
 
-export async function removeCharacterFromChat(chatId: string, characterId: string): Promise<Chat | null> {
-  const chat = chatsStore.find((c) => c.id === chatId)
-  if (!chat) return Promise.resolve(null)
-  chat.characterIds = chat.characterIds.filter((id) => id !== characterId)
-  chatsStore = chatsStore.map((c) => (c.id === chatId ? { ...chat } : c))
-  return Promise.resolve(chat)
+export async function removeCharacterFromChat(
+  chatId: string,
+  agentId: string
+): Promise<Chat | null> {
+  await agentsApi.deleteAgent(chatId, agentId)
+  return fetchChat(chatId)
 }
 
-export async function sendMessage(chatId: string, characterId: string, content: string): Promise<Message> {
-  // TODO: return fetch(`${API_BASE}/chats/${chatId}/messages`, { method: 'POST', body: JSON.stringify({ characterId, content }) }).then(r => r.json())
-  const msg: Message = {
-    id: `msg-${Date.now()}`,
+export async function sendMessage(
+  chatId: string,
+  agentId: string,
+  content: string
+): Promise<Message> {
+  const res = await messagesApi.sendMessage(chatId, agentId, {
+    text: content,
+    sender: 'user',
+  })
+  return {
+    id: res.id,
     chatId,
-    characterId,
-    content,
-    timestamp: new Date().toISOString(),
+    characterId: agentId,
+    content: res.text,
+    timestamp: res.timestamp,
     isRead: false,
   }
-  const list = messagesStore[chatId] ?? []
-  messagesStore[chatId] = [...list, msg]
-
-  const chat = chatsStore.find((c) => c.id === chatId)
-  if (chat) {
-    chat.lastMessage = { content, timestamp: msg.timestamp, characterId }
-    chatsStore = chatsStore.map((c) => (c.id === chatId ? { ...chat } : c))
-  }
-
-  return Promise.resolve(msg)
 }
 
 export async function deleteChat(chatId: string): Promise<void> {
-  chatsStore = chatsStore.filter((c) => c.id !== chatId)
-  delete messagesStore[chatId]
-  return Promise.resolve()
+  await roomsApi.deleteRoom(chatId)
 }

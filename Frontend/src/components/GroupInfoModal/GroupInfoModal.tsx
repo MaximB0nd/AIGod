@@ -26,10 +26,7 @@ export function GroupInfoModal({ isOpen, onClose, chat }: GroupInfoModalProps) {
     setLoading(true)
     setError(null)
     try {
-      const data = await fetchRoom(chat.id, {
-        name: chat.title,
-        agentCount: chat.characterIds.length,
-      })
+      const data = await fetchRoom(chat.id)
       setRoom(data ?? null)
       if (!data) setError('Не удалось загрузить данные')
     } catch {

@@ -2,9 +2,10 @@
  * Модалка добавления персонажа в чат
  */
 
-import { useCallback } from 'react'
+import { useCallback, useState } from 'react'
 import type { Chat } from '@/types/chat'
 import { useChat } from '@/context/ChatContext'
+import { ApiError } from '@/api/client'
 import styles from './AddCharacterModal.module.css'
 
 interface AddCharacterModalProps {
@@ -14,17 +15,25 @@ interface AddCharacterModalProps {
 }
 
 export function AddCharacterModal({ isOpen, chat, onClose }: AddCharacterModalProps) {
-  const { characters, addCharacterToChat } = useChat()
+  const { characterPresets, addCharacterToChat } = useChat()
+  const [addingId, setAddingId] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
-  const availableCharacters = characters.filter(
-    (c) => chat && !chat.characterIds.includes(c.id)
-  )
+  const availableCharacters = characterPresets
 
   const handleAdd = useCallback(
-    async (characterId: string) => {
+    async (presetId: string) => {
       if (!chat) return
-      await addCharacterToChat(chat.id, characterId)
-      onClose()
+      setAddingId(presetId)
+      setError(null)
+      try {
+        await addCharacterToChat(chat.id, presetId)
+        onClose()
+      } catch (err) {
+        setError(err instanceof ApiError ? err.message : err instanceof Error ? err.message : 'Ошибка добавления персонажа')
+      } finally {
+        setAddingId(null)
+      }
     },
     [chat, addCharacterToChat, onClose]
   )
@@ -41,21 +50,24 @@ export function AddCharacterModal({ isOpen, chat, onClose }: AddCharacterModalPr
           </button>
         </div>
         <div className={styles.content}>
+          {error && <p className={styles.error}>{error}</p>}
           {availableCharacters.length === 0 ? (
             <p className={styles.empty}>Все персонажи уже в чате</p>
           ) : (
             <ul className={styles.list}>
-              {availableCharacters.map((c) => (
-                <li key={c.id}>
+              {availableCharacters.map((preset) => (
+                <li key={preset.id}>
                   <button
                     type="button"
                     className={styles.item}
-                    onClick={() => handleAdd(c.id)}
+                    onClick={() => handleAdd(preset.id)}
+                    disabled={addingId === preset.id}
                   >
-                    <span className={styles.itemName}>{c.name}</span>
-                    {c.description && (
-                      <span className={styles.itemDesc}>{c.description}</span>
+                    <span className={styles.itemName}>{preset.name}</span>
+                    {preset.description && (
+                      <span className={styles.itemDesc}>{preset.description}</span>
                     )}
+                    {addingId === preset.id && <span className={styles.adding}>...</span>}
                   </button>
                 </li>
               ))}

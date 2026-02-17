@@ -59,6 +59,15 @@
   padding: 24px;
 }
 
+.error {
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  font-size: 0.875rem;
+  color: #c0392b;
+  background: #fdecea;
+  border-radius: var(--radius-card);
+}
+
 .label {
   display: block;
   margin-bottom: 16px;
@@ -83,30 +92,23 @@
   border-color: var(--tg-accent);
 }
 
-.charList {
+.textarea {
+  display: block;
+  width: 100%;
   margin-top: 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.charItem {
-  display: flex;
-  align-items: center;
-  gap: 12px;
   padding: 12px 16px;
+  font-size: 0.9375rem;
+  font-family: inherit;
   border: 1px solid var(--tg-border);
   border-radius: var(--radius-card);
-  cursor: pointer;
-  transition: background 0.15s;
+  outline: none;
+  resize: vertical;
+  min-height: 72px;
+  transition: border-color 0.15s;
 }
 
-.charItem:hover {
-  background: var(--tg-hover);
-}
-
-.charItem input {
-  accent-color: var(--tg-accent);
+.textarea:focus {
+  border-color: var(--tg-accent);
 }
 
 .actions {

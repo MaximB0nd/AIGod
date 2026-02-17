@@ -6,6 +6,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import type { Chat, Character } from '@/types/chat'
 import { useChat } from '@/context/ChatContext'
+import { ApiError } from '@/api/client'
 import styles from './ChatView.module.css'
 
 interface NarratorInputProps {
@@ -61,6 +62,7 @@ export function NarratorInput({ chat }: NarratorInputProps) {
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [suggestions, setSuggestions] = useState<Character[]>([])
   const [suggestionIndex, setSuggestionIndex] = useState(0)
+  const [error, setError] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const lastAtPos = useRef(-1)
 
@@ -76,16 +78,21 @@ export function NarratorInput({ chat }: NarratorInputProps) {
     hasMeaningfulText(trimmed) &&
     !hasDuplicates
 
-  const handleSend = useCallback(() => {
+  const handleSend = useCallback(async () => {
     const trimmed = text.trim()
     if (!trimmed) return
     if (!hasMeaningfulText(trimmed)) return
     if (hasDuplicateAgentMention(trimmed, characters, chat.characterIds)) return
 
+    setError(null)
     const agentIds = parseMentions(trimmed, characters, chat.characterIds)
-    sendEvent(chat.id, trimmed, agentIds)
-    setText('')
-    setShowSuggestions(false)
+    try {
+      await sendEvent(chat.id, trimmed, agentIds)
+      setText('')
+      setShowSuggestions(false)
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : err instanceof Error ? err.message : 'Ошибка отправки события')
+    }
   }, [text, chat.id, chat.characterIds, characters, sendEvent])
 
   const handleKeyDown = useCallback(
@@ -178,6 +185,7 @@ export function NarratorInput({ chat }: NarratorInputProps) {
 
   return (
     <div className={styles.inputWrap}>
+      {error && <p className={styles.inputError}>{error}</p>}
       <div className={styles.narratorInputContainer}>
         <input
           ref={inputRef}

@@ -6,6 +6,7 @@
 import { useState, useCallback } from 'react'
 import type { Chat } from '@/types/chat'
 import { useChat } from '@/context/ChatContext'
+import { ApiError } from '@/api/client'
 import styles from './ChatView.module.css'
 
 interface MessageInputProps {
@@ -16,16 +17,22 @@ export function MessageInput({ chat }: MessageInputProps) {
   const { characters, sendMessage } = useChat()
   const [text, setText] = useState('')
   const [selectedCharId, setSelectedCharId] = useState<string>(chat.characterIds[0] ?? '')
+  const [error, setError] = useState<string | null>(null)
 
   const chatCharacters = chat.characterIds
     .map((id) => characters.find((c) => c.id === id))
     .filter(Boolean)
 
-  const handleSend = useCallback(() => {
+  const handleSend = useCallback(async () => {
     const trimmed = text.trim()
     if (!trimmed || !selectedCharId) return
-    sendMessage(chat.id, selectedCharId, trimmed)
-    setText('')
+    setError(null)
+    try {
+      await sendMessage(chat.id, selectedCharId, trimmed)
+      setText('')
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : err instanceof Error ? err.message : 'Ошибка отправки')
+    }
   }, [text, selectedCharId, chat.id, sendMessage])
 
   const handleKeyDown = useCallback(
@@ -48,6 +55,7 @@ export function MessageInput({ chat }: MessageInputProps) {
 
   return (
     <div className={styles.inputWrap}>
+      {error && <p className={styles.inputError}>{error}</p>}
       <select
         className={styles.charSelect}
         value={selectedCharId}
