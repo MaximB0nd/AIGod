@@ -4,10 +4,11 @@ from dotenv import load_dotenv
 load_dotenv()
 
 class Config:
-    # OpenAI
-    YANDEX_GPT_API_KEY = os.getenv("YANDEX_GPT_API_KEY", "") 
-    YANDEX_GPT_MODEL = os.getenv("YANDEX_GPT_MODEL", "gpt-3.5-turbo") # change to YandexGPT
-    EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "text-embedding-ada-002")
+    # Yandex GPT (LLM агенты)
+    YANDEX_CLOUD_FOLDER = os.getenv("YANDEX_CLOUD_FOLDER", "")
+    YANDEX_CLOUD_API_KEY = os.getenv("YANDEX_CLOUD_API_KEY", "")
+    YANDEX_GPT_API_KEY = os.getenv("YANDEX_GPT_API_KEY", "")  # legacy
+    YANDEX_GPT_MODEL = os.getenv("YANDEX_GPT_MODEL", "yandexgpt")
     
     # Database
     SQLITE_DB_PATH = os.getenv("SQLITE_DB_PATH", "agents.db")
