@@ -146,12 +146,16 @@ def delete_agent(
     room: Room = Depends(get_room_for_user),
     db: Session = Depends(get_db),
 ):
-    """Удалить агента из комнаты."""
+    """Удалить агента (полностью из БД). Ссылки в сообщениях становятся NULL."""
     agent = _agent_in_room(room, agent_id)
     if not agent:
         raise HTTPException(status_code=404, detail="Агент не найден в этой комнате")
 
-    room.agents.remove(agent)
+    # Все ссылки в сообщениях на этого агента устанавливаем в NULL
+    db.query(Message).filter(Message.agent_id == agent_id).update(
+        {Message.agent_id: None}, synchronize_session=False
+    )
+    db.delete(agent)
     db.commit()
 
 
