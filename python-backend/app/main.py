@@ -8,8 +8,10 @@ from app.database.sqlite_setup import Base, SessionLocal, engine, get_db
 from app.models.agent import Agent
 from app.routers.agents import router as agents_router
 from app.routers.auth import router as auth_router
+from app.routers.room_agents import router as room_agents_router
 from app.routers.rooms import router as rooms_router
 from app.routers.system import router as system_router
+from app.routers.websocket import router as websocket_router
 
 
 @asynccontextmanager
@@ -27,42 +29,39 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="AIgod API",
     description="""
-API бэкенда AIgod для хакатона.
+API бэкенда для хакатона «Виртуальный мир: симулятор живых существ».
 
-## Аутентификация
-- **POST /auth/register** — регистрация (email + пароль)
-- **POST /auth/login** — логин (form: username=email, password), возвращает access_token
-- **GET /auth/me** — текущий пользователь (требует Bearer token)
-
-## Комнаты
-- **GET /rooms** — список комнат пользователя
-- **POST /rooms** — создать комнату
-- **GET /rooms/{id}** — получить комнату
-- **PATCH /rooms/{id}** — обновить комнату
-- **DELETE /rooms/{id}** — удалить комнату
-
-Для тестирования защищённых эндпоинтов: нажмите **Authorize**, введите email и пароль.
+Все эндпоинты под префиксом `/api`. Авторизация: Bearer token (кроме register/login).
     """,
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
     openapi_tags=[
         {"name": "auth", "description": "Регистрация, логин, текущий пользователь"},
-        {"name": "system", "description": "Проверка работы сервера и БД"},
-        {"name": "agents", "description": "Работа с агентами"},
-        {"name": "rooms", "description": "Комнаты пользователя"},
+        {"name": "system", "description": "Проверка работы"},
+        {"name": "rooms", "description": "Комнаты"},
+        {"name": "room-agents", "description": "Агенты, события, лента в комнате"},
+        {"name": "agents", "description": "Каталог агентов (для добавления в комнату)"},
+        {"name": "websocket", "description": "Поток событий в реальном времени"},
     ],
     lifespan=lifespan,
 )
 
-# Роутеры
-app.include_router(system_router)
-app.include_router(auth_router)
-app.include_router(agents_router)
-app.include_router(rooms_router)
+# API под префиксом /api
+app.include_router(system_router, prefix="/api")
+app.include_router(auth_router, prefix="/api")
+app.include_router(rooms_router, prefix="/api")
+app.include_router(room_agents_router, prefix="/api/rooms")
+app.include_router(agents_router, prefix="/api")
+app.include_router(websocket_router, prefix="/api")
 
 # Создаём таблицы
 Base.metadata.create_all(bind=engine)
+
+
+@app.get("/")
+def root():
+    return {"message": "AIgod backend", "docs": "/docs", "api": "/api"}
 
 
 def init_default_agents(db: Session):
