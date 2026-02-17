@@ -1,4 +1,4 @@
-/* Bento-стиль модалки описания группы */
+/* Модалка профиля агента — Bento-стиль */
 
 .overlay {
   position: fixed;
@@ -8,17 +8,20 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: 1100;
 }
 
 .modal {
   width: 100%;
   max-width: 440px;
+  max-height: 85vh;
   margin: 16px;
   background: var(--tg-chat-bg);
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-bento-lg);
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .header {
@@ -27,6 +30,7 @@
   justify-content: space-between;
   padding: 20px 24px;
   border-bottom: 1px solid var(--tg-border);
+  flex-shrink: 0;
 }
 
 .header h2 {
@@ -59,6 +63,7 @@
 
 .body {
   padding: 24px;
+  overflow-y: auto;
 }
 
 .loading,
@@ -117,6 +122,10 @@
   color: var(--tg-muted);
 }
 
+.moodIcon {
+  margin-right: 4px;
+}
+
 .label {
   display: block;
   margin-bottom: 8px;
@@ -127,11 +136,16 @@
   letter-spacing: 0.05em;
 }
 
-.description {
-  margin-top: 16px;
+.count {
+  font-weight: 400;
+  text-transform: none;
 }
 
-.descriptionText {
+.section {
+  margin-top: 20px;
+}
+
+.characterText {
   margin: 0;
   font-size: 0.9375rem;
   line-height: 1.6;
@@ -140,106 +154,38 @@
   word-break: break-word;
 }
 
-.noDescription {
-  margin: 0;
-  font-size: 0.875rem;
-  color: var(--tg-muted);
-  font-style: italic;
-}
-
-.agentsSection {
-  margin-top: 20px;
-}
-
-.agentsList {
+.memoriesList {
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-.agentItem {
+.memoryItem {
+  padding: 12px;
+  background: var(--tg-hover);
+  border-radius: var(--radius-sm);
   margin-bottom: 8px;
 }
 
-.agentItem:last-child {
+.memoryItem:last-child {
   margin-bottom: 0;
 }
 
-.agentCard {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 12px;
-  border-radius: var(--radius-sm);
-  background: var(--tg-hover);
-  cursor: pointer;
-  transition: background 0.15s;
-  width: 100%;
-  box-sizing: border-box;
-}
-
-.agentCard:hover {
-  background: rgba(0, 0, 0, 0.08);
-}
-
-.agentAvatar {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: #fff;
-  background: var(--tg-accent);
-  flex-shrink: 0;
-}
-
-.agentAvatar img {
-  width: 100%;
-  height: 100%;
-  border-radius: 10px;
-  object-fit: cover;
-}
-
-.agentName {
-  flex: 1;
+.memoryContent {
+  margin: 0 0 6px;
   font-size: 0.9375rem;
+  line-height: 1.5;
   color: var(--tg-text);
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
-.removeBtn {
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.25rem;
-  line-height: 1;
-  background: transparent;
-  border: 1px solid var(--tg-border);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
+.memoryTime {
+  font-size: 0.75rem;
   color: var(--tg-muted);
-  transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
 
-.removeBtn:hover:not(:disabled) {
-  background: var(--color-coral);
-  color: #fff;
-  border-color: var(--color-coral);
-}
-
-.removeBtn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.noAgents {
+.noMemories {
   margin: 0;
   font-size: 0.875rem;
   color: var(--tg-muted);

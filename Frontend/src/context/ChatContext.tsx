@@ -8,6 +8,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
   type ReactNode,
 } from 'react'
@@ -82,11 +83,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const loadMessages = useCallback(async (chatId: string) => {
     setIsMessagesLoading(true)
     try {
-      const [msgs, feedItems, agents] = await Promise.all([
-        chatApi.fetchMessages(chatId),
-        chatApi.fetchFeed(chatId),
-        chatApi.fetchCharacters(chatId),
-      ])
+      const { messages: msgs, feed: feedItems, characters: agents } =
+        await chatApi.fetchMessagesFeedAndCharacters(chatId)
       setMessages(msgs)
       setFeed(feedItems.sort(sortFeed))
       setCharacters(agents)

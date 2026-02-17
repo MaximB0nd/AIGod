@@ -9,7 +9,12 @@
 ```
 src/
 ├── api/                    # API-слой
-│   ├── chat.ts             # API чатов (моки, готов к замене на fetch)
+│   ├── chat.ts             # API чатов (маппинг Room/Agent на Chat/Character)
+│   ├── rooms.ts            # Комнаты
+│   ├── agents.ts           # Агенты
+│   ├── events.ts           # События
+│   ├── feed.ts             # Лента
+│   ├── messages.ts         # Сообщения
 │   └── index.ts
 ├── components/
 │   ├── ChatList/           # Левая панель — список чатов
@@ -36,21 +41,10 @@ src/
 
 ## Интеграция API
 
-Все вызовы в `src/api/chat.ts` сейчас возвращают моки. Для перехода на реальный API:
-
-1. Замените `Promise.resolve(...)` на `fetch(\`${API_BASE}/...\`)`.
-2. Установите `API_BASE` (например, `import.meta.env.VITE_API_URL`).
-3. Добавьте обработку ошибок и загрузки.
-
-Пример:
-
-```ts
-export async function fetchChats(): Promise<Chat[]> {
-  const res = await fetch(`${API_BASE}/chats`)
-  if (!res.ok) throw new Error('Failed to fetch chats')
-  return res.json()
-}
-```
+API-слой использует реальный бэкенд через `apiFetch` в `src/api/client.ts`:
+- В dev: относительные URL `/api/...` через Vite proxy
+- В prod: `VITE_API_URL` или fallback на бэкенд
+- Авторизация: Bearer-токен в заголовке, 401 → logout
 
 ## Основные сущности
 

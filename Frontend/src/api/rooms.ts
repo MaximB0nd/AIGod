@@ -23,11 +23,16 @@ export interface RoomsListResponse {
 
 /**
  * POST /api/rooms — создать комнату
+ * description опционально (API: "string (опционально)")
  */
 export async function createRoom(data: CreateRoomRequest): Promise<Room> {
+  const body: Record<string, string> = { name: data.name }
+  if (data.description != null && data.description.trim() !== '') {
+    body.description = data.description.trim()
+  }
   return apiFetch<Room>('/api/rooms', {
     method: 'POST',
-    body: JSON.stringify(data),
+    body: JSON.stringify(body),
   })
 }
 

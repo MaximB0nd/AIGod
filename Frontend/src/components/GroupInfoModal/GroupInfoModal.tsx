@@ -1,12 +1,16 @@
 /**
  * Модалка описания группы (комнаты)
- * Bento-стиль, заготовка под подключение бэкенда
+ * Список агентов комнаты с возможностью удаления
  */
 
 import { useState, useEffect, useCallback } from 'react'
 import { fetchRoom } from '@/api/rooms'
+import { fetchAgents } from '@/api/agents'
+import { useChat } from '@/context/ChatContext'
+import { AgentProfileModal } from '@/components/AgentProfileModal'
 import type { Room } from '@/types/room'
 import type { Chat } from '@/types/chat'
+import type { AgentSummary } from '@/types/agent'
 import styles from './GroupInfoModal.module.css'
 
 interface GroupInfoModalProps {
@@ -17,21 +21,30 @@ interface GroupInfoModalProps {
 }
 
 export function GroupInfoModal({ isOpen, onClose, chat }: GroupInfoModalProps) {
+  const { removeCharacterFromChat } = useChat()
   const [room, setRoom] = useState<Room | null>(null)
+  const [agents, setAgents] = useState<AgentSummary[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [profileAgentId, setProfileAgentId] = useState<string | null>(null)
 
   const loadRoom = useCallback(async () => {
     if (!chat?.id) return
     setLoading(true)
     setError(null)
     try {
-      const data = await fetchRoom(chat.id)
-      setRoom(data ?? null)
-      if (!data) setError('Не удалось загрузить данные')
+      const [roomData, agentsData] = await Promise.all([
+        fetchRoom(chat.id),
+        fetchAgents(chat.id),
+      ])
+      setRoom(roomData ?? null)
+      setAgents(agentsData ?? [])
+      if (!roomData) setError('Не удалось загрузить данные')
     } catch {
       setError('Ошибка загрузки')
       setRoom(null)
+      setAgents([])
     } finally {
       setLoading(false)
     }
@@ -42,9 +55,43 @@ export function GroupInfoModal({ isOpen, onClose, chat }: GroupInfoModalProps) {
       loadRoom()
     } else {
       setRoom(null)
+      setAgents([])
       setError(null)
+      setDeletingId(null)
+      setProfileAgentId(null)
     }
   }, [isOpen, chat?.id, loadRoom])
+
+  const handleRemoveAgent = useCallback(
+    async (agentId: string) => {
+      if (!chat?.id || deletingId) return
+      setDeletingId(agentId)
+      try {
+        await removeCharacterFromChat(chat.id, agentId)
+        setAgents((prev) => prev.filter((a) => a.id !== agentId))
+        setRoom((prev) =>
+          prev
+            ? { ...prev, agentCount: Math.max(0, (prev.agentCount ?? 0) - 1) }
+            : null
+        )
+      } catch {
+        setError('Не удалось удалить агента')
+      } finally {
+        setDeletingId(null)
+      }
+    },
+    [chat?.id, removeCharacterFromChat, deletingId]
+  )
+
+  const handleRemoveClick = useCallback(
+    (e: React.MouseEvent, agent: AgentSummary) => {
+      e.stopPropagation()
+      e.preventDefault()
+      if (!window.confirm(`Удалить агента «${agent.name}» из комнаты?`)) return
+      handleRemoveAgent(agent.id)
+    },
+    [handleRemoveAgent]
+  )
 
   const handleOverlayClick = useCallback(() => {
     onClose()
@@ -90,7 +137,7 @@ export function GroupInfoModal({ isOpen, onClose, chat }: GroupInfoModalProps) {
                 <div className={styles.titleBlock}>
                   <h3 className={styles.title}>{room.name || chat?.title || 'Группа'}</h3>
                   <span className={styles.meta}>
-                    {room.agentCount ?? chat?.characterIds.length ?? 0} агентов
+                    {room.agentCount ?? agents.length ?? chat?.characterIds.length ?? 0} агентов
                     {room.speed != null && ` · Скорость ${room.speed}x`}
                   </span>
                 </div>
@@ -102,14 +149,58 @@ export function GroupInfoModal({ isOpen, onClose, chat }: GroupInfoModalProps) {
                 </div>
               ) : (
                 <p className={styles.noDescription}>
-                  Описание не задано. После подключения бэкенда можно будет редактировать.
+                  Описание не задано.
                 </p>
               )}
-              {/* TODO: кнопки редактирования, удаления — после подключения PATCH/DELETE */}
+              <div className={styles.agentsSection}>
+                <label className={styles.label}>Агенты в комнате</label>
+                {agents.length === 0 ? (
+                  <p className={styles.noAgents}>Нет агентов</p>
+                ) : (
+                  <ul className={styles.agentsList}>
+                    {agents.map((agent) => (
+                      <li key={agent.id} className={styles.agentItem}>
+                        <div
+                          role="button"
+                          tabIndex={0}
+                          className={styles.agentCard}
+                          onClick={() => setProfileAgentId(agent.id)}
+                          onKeyDown={(e) => e.key === 'Enter' && setProfileAgentId(agent.id)}
+                        >
+                          <div className={styles.agentAvatar}>
+                            {agent.avatar ? (
+                              <img src={agent.avatar} alt="" />
+                            ) : (
+                              <span>{agent.name.slice(0, 2).toUpperCase()}</span>
+                            )}
+                          </div>
+                          <span className={styles.agentName}>{agent.name}</span>
+                          <button
+                            type="button"
+                            className={styles.removeBtn}
+                            onClick={(e) => handleRemoveClick(e, agent)}
+                            disabled={!!deletingId}
+                            title="Удалить агента из комнаты"
+                            aria-label={`Удалить ${agent.name}`}
+                          >
+                            {deletingId === agent.id ? '…' : '×'}
+                          </button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             </>
           )}
         </div>
       </div>
+      <AgentProfileModal
+        isOpen={!!profileAgentId}
+        onClose={() => setProfileAgentId(null)}
+        roomId={chat?.id ?? ''}
+        agentId={profileAgentId}
+      />
     </div>
   )
 }

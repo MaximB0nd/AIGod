@@ -36,13 +36,12 @@ export function getCharacterPresets() {
 
 export async function fetchChats(): Promise<Chat[]> {
   const roomList = await roomsApi.fetchRooms()
-  const chats: Chat[] = []
-  for (const room of roomList) {
-    const agents = await agentsApi.fetchAgents(room.id)
-    const chat = roomToChat(room, agents.map((a) => a.id))
-    if (chat) chats.push(chat)
-  }
-  return chats
+  const agentsByRoom = await Promise.all(
+    roomList.map((room) => agentsApi.fetchAgents(room.id))
+  )
+  return roomList
+    .map((room, i) => roomToChat(room, agentsByRoom[i].map((a) => a.id)))
+    .filter((c): c is Chat => c != null)
 }
 
 export async function fetchChat(chatId: string): Promise<Chat | null> {
@@ -135,13 +134,70 @@ export async function fetchCharacters(roomId: string): Promise<Character[]> {
   return agents.map(agentToCharacter)
 }
 
+/**
+ * Загрузить сообщения, ленту и персонажей одним запросом (2 API-вызова вместо 4).
+ * Используется в loadMessages для устранения дублирования fetchFeed и fetchAgents.
+ */
+export async function fetchMessagesFeedAndCharacters(chatId: string): Promise<{
+  messages: Message[]
+  feed: FeedItem[]
+  characters: Character[]
+}> {
+  const [items, agents] = await Promise.all([
+    feedApi.fetchFeed(chatId, 20),
+    agentsApi.fetchAgents(chatId),
+  ])
+  const feed: FeedItem[] = items.map((i) => {
+    if (i.type === 'message') {
+      return {
+        type: 'message' as const,
+        data: {
+          id: i.id,
+          chatId,
+          characterId: i.agentId ?? '',
+          content: i.text,
+          timestamp: i.timestamp,
+          isRead: true,
+        },
+      }
+    }
+    return {
+      type: 'event' as const,
+      data: {
+        id: i.id,
+        chatId,
+        type: 'user_event' as const,
+        description: (i as { description?: string }).description ?? '',
+        agentIds: (i as { agentIds?: string[] }).agentIds ?? [],
+        timestamp: i.timestamp,
+      },
+    }
+  })
+  const messages: Message[] = items
+    .filter((i): i is typeof i & { type: 'message' } => i.type === 'message')
+    .map((i) => ({
+      id: i.id,
+      chatId,
+      characterId: i.agentId ?? '',
+      content: i.text,
+      timestamp: i.timestamp,
+      isRead: true,
+    }))
+  return {
+    messages,
+    feed,
+    characters: agents.map(agentToCharacter),
+  }
+}
+
 export async function createChat(data: {
   title: string
   description?: string
 }): Promise<Chat> {
   const room = await roomsApi.createRoom({
     name: data.title,
-    ...(data.description !== undefined && data.description !== '' && { description: data.description }),
+    // description опционально по API — не передаём при пустом значении
+    ...(data.description != null && data.description.trim() !== '' && { description: data.description.trim() }),
   })
 
   return {
