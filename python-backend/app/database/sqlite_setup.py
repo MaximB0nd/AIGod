@@ -1,8 +1,12 @@
+import os
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 
-SQLITE_URL = "sqlite:///./aigod.db"          # ← файл будет создан рядом с main.py
+# Путь к БД: через env для Docker (абсолютный /app/data/aigod.db), по умолчанию aigod.db
+_db_path = os.getenv("SQLITE_DB_PATH", "aigod.db")
+SQLITE_URL = f"sqlite:////{_db_path}" if _db_path.startswith("/") else f"sqlite:///./{_db_path}"
 
 engine = create_engine(
     SQLITE_URL,

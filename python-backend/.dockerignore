@@ -1,0 +1,19 @@
+# Git
+.git
+.gitignore
+
+# Python
+.venv
+venv
+env
+__pycache__
+*.pyc
+.pytest_cache
+
+# IDE
+.idea
+.vscode
+
+# Локальная БД (создаётся в контейнере)
+*.db
+*.sqlite3

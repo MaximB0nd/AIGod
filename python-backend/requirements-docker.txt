@@ -1,0 +1,14 @@
+# Минимальный набор для API (без chromadb — нужна для LLM с памятью)
+fastapi>=0.115.0
+uvicorn[standard]>=0.24.0
+openai>=1.0.0
+python-dotenv>=1.0.0
+numpy
+pydantic[email]
+sqlalchemy>=2.0.31
+aiofiles>=23.2.0
+python-multipart>=0.0.6
+websockets>=12.0
+bcrypt>=4.0.0
+pyjwt
+python-jose[cryptography]
