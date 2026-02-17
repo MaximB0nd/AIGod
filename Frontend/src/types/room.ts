@@ -8,6 +8,8 @@ export interface Room {
   name: string
   description?: string
   speed?: number
+  /** true = эмуляция включена, false = выключена */
+  emulationRunning?: boolean
   createdAt: string
   /** Количество агентов в комнате (приходит в GET /api/rooms/{roomId}) */
   agentCount?: number

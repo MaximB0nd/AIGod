@@ -13,6 +13,7 @@ Room = {
   name: string
   description?: string
   speed?: number
+  emulationRunning?: boolean   // true = эмуляция включена, false = выключена
   createdAt: string
 }
 
@@ -173,10 +174,12 @@ Message = {
   "name": "string",
   "description": "string",
   "speed": 1.0,
+  "emulationRunning": true,
   "createdAt": "ISO8601",
   "agentCount": 5
 }
 ```
+`emulationRunning` — опционально, статус эмуляции (включена/выключена).
 
 ---
 
@@ -491,7 +494,39 @@ Message = {
 
 *По ТЗ: «Слайдер скорость времени».*
 
-### 5.1 Изменить скорость симуляции комнаты
+### 5.1 Включить эмуляцию комнаты
+
+**`POST /api/rooms/{roomId}/emulation/start`**
+
+**Отправлять:** ничего (тело пустое или `{}`)
+
+**Получать:**
+```json
+{
+  "running": true
+}
+```
+или `204 No Content`
+
+---
+
+### 5.2 Выключить эмуляцию комнаты
+
+**`POST /api/rooms/{roomId}/emulation/stop`**
+
+**Отправлять:** ничего (тело пустое или `{}`)
+
+**Получать:**
+```json
+{
+  "running": false
+}
+```
+или `204 No Content`
+
+---
+
+### 5.3 Изменить скорость симуляции комнаты
 
 **`PATCH /api/rooms/{roomId}/speed`**
 
@@ -587,10 +622,12 @@ Message = {
 | 16 | События | POST | `/api/rooms/{roomId}/events/broadcast` |
 | 17 | Лента | GET | `/api/rooms/{roomId}/feed` |
 | 18 | Сообщения | POST | `/api/rooms/{roomId}/agents/{agentId}/messages` |
-| 19 | Симуляция | PATCH | `/api/rooms/{roomId}/speed` |
+| 19 | Симуляция | POST | `/api/rooms/{roomId}/emulation/start` |
+| 20 | Симуляция | POST | `/api/rooms/{roomId}/emulation/stop` |
+| 21 | Симуляция | PATCH | `/api/rooms/{roomId}/speed` |
 | — | WebSocket | WS | `/api/rooms/{roomId}/stream` |
 
-**Итого: 19 REST-ручек + WebSocket**
+**Итого: 21 REST-ручек + WebSocket**
 
 ---
 

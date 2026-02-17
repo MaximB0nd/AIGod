@@ -8,12 +8,19 @@ import ForceGraph2D from 'react-force-graph-2d'
 import type { ForceGraphMethods } from 'react-force-graph-2d'
 import { useRelationships } from '@/hooks/useRelationships'
 import type { RelationshipsResponse } from '@/api/agents'
+import { startEmulation, stopEmulation, updateRoomSpeed } from '@/api/simulation'
+import { fetchRoom } from '@/api/rooms'
 import styles from './RelationshipsGraph.module.css'
 
 interface RelationshipsGraphProps {
   roomId: string | null
   /** Вызывать reload при открытии панели */
   onPanelOpen?: boolean
+  /**
+   * Опциональный callback при старте/остановке эмуляции.
+   * По умолчанию: POST /api/rooms/{roomId}/emulation/start и .../stop.
+   */
+  onEmulationToggle?: (roomId: string, running: boolean) => Promise<void>
 }
 
 function sympathyToColor(level: number): string {
@@ -73,12 +80,31 @@ function transformToGraphData(data: RelationshipsResponse | null) {
 
 const BOUND_PADDING = 60
 const GRAPH_HEIGHT = 280
+const SPEED_VALUES = [1, 2, 3] as const
 
-export function RelationshipsGraph({ roomId, onPanelOpen }: RelationshipsGraphProps) {
+export function RelationshipsGraph({ roomId, onPanelOpen, onEmulationToggle }: RelationshipsGraphProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const graphRef = useRef<ForceGraphMethods | undefined>(undefined)
   const [dimensions, setDimensions] = useState({ width: 320, height: GRAPH_HEIGHT })
+  const [emulationRunning, setEmulationRunning] = useState(true)
+  const [emulationLoading, setEmulationLoading] = useState(false)
+  const [speed, setSpeed] = useState<1 | 2 | 3>(1)
+  const [speedLoading, setSpeedLoading] = useState(false)
   const { data, isLoading, error, reload } = useRelationships(roomId)
+
+  useEffect(() => {
+    if (!roomId) return
+    fetchRoom(roomId).then((room) => {
+      if (room?.emulationRunning != null) {
+        setEmulationRunning(room.emulationRunning)
+      } else if (room?.speed != null) {
+        setEmulationRunning(room.speed > 0)
+      }
+      if (room?.speed != null && SPEED_VALUES.includes(room.speed as 1 | 2 | 3)) {
+        setSpeed(room.speed as 1 | 2 | 3)
+      }
+    }).catch(() => {})
+  }, [roomId])
 
   const prevOpenRef = useRef(false)
   useEffect(() => {
@@ -129,6 +155,56 @@ export function RelationshipsGraph({ roomId, onPanelOpen }: RelationshipsGraphPr
     ;(node as { y: number }).y = Math.max(yMin, Math.min(yMax, y))
   }, [])
 
+  const handleEmulationToggle = useCallback(async () => {
+    if (!roomId || emulationLoading) return
+    const nextRunning = !emulationRunning
+    setEmulationLoading(true)
+    try {
+      if (onEmulationToggle) {
+        await onEmulationToggle(roomId, nextRunning)
+      } else if (nextRunning) {
+        await startEmulation(roomId)
+      } else {
+        await stopEmulation(roomId)
+      }
+      setEmulationRunning(nextRunning)
+    } catch {
+      // Ошибка — состояние не меняем
+    } finally {
+      setEmulationLoading(false)
+    }
+  }, [roomId, emulationRunning, emulationLoading, onEmulationToggle])
+
+  const handleSpeedChange = useCallback(
+    async (newSpeed: 1 | 2 | 3) => {
+      if (!roomId || speedLoading) return
+      setSpeedLoading(true)
+      try {
+        await updateRoomSpeed(roomId, newSpeed)
+        setSpeed(newSpeed)
+      } catch {
+        // Ошибка — состояние не меняем
+      } finally {
+        setSpeedLoading(false)
+      }
+    },
+    [roomId, speedLoading]
+  )
+
+  const handleSliderChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const v = Number(e.target.value) as 1 | 2 | 3
+    setSpeed(v)
+  }, [])
+
+  const handleSliderRelease = useCallback(
+    (e: React.PointerEvent<HTMLInputElement>) => {
+      e.currentTarget.releasePointerCapture(e.pointerId)
+      const v = Number(e.currentTarget.value) as 1 | 2 | 3
+      handleSpeedChange(v)
+    },
+    [handleSpeedChange]
+  )
+
   if (!roomId) {
     return (
       <div className={styles.wrapper}>
@@ -148,6 +224,19 @@ export function RelationshipsGraph({ roomId, onPanelOpen }: RelationshipsGraphPr
   if (error) {
     return (
       <div className={styles.wrapper} ref={containerRef}>
+        <div className={styles.header}>
+          <h3 className={styles.title}>Граф отношений</h3>
+          <button
+            type="button"
+            className={styles.refreshBtn}
+            onClick={() => reload()}
+            disabled={isLoading}
+            title="Обновить граф"
+            aria-label="Обновить граф"
+          >
+            ↻
+          </button>
+        </div>
         <p className={styles.error}>{error}</p>
       </div>
     )
@@ -156,6 +245,19 @@ export function RelationshipsGraph({ roomId, onPanelOpen }: RelationshipsGraphPr
   if (!data || (data.nodes.length === 0 && data.edges.length === 0)) {
     return (
       <div className={styles.wrapper} ref={containerRef}>
+        <div className={styles.header}>
+          <h3 className={styles.title}>Граф отношений</h3>
+          <button
+            type="button"
+            className={styles.refreshBtn}
+            onClick={() => reload()}
+            disabled={isLoading}
+            title="Обновить граф"
+            aria-label="Обновить граф"
+          >
+            ↻
+          </button>
+        </div>
         <p className={styles.placeholder}>Нет агентов и связей в комнате</p>
       </div>
     )
@@ -163,7 +265,19 @@ export function RelationshipsGraph({ roomId, onPanelOpen }: RelationshipsGraphPr
 
   return (
     <div className={styles.wrapper} ref={containerRef}>
-      <h3 className={styles.title}>Граф отношений</h3>
+      <div className={styles.header}>
+        <h3 className={styles.title}>Граф отношений</h3>
+        <button
+          type="button"
+          className={styles.refreshBtn}
+          onClick={() => reload()}
+          disabled={isLoading}
+          title="Обновить граф"
+          aria-label="Обновить граф"
+        >
+          ↻
+        </button>
+      </div>
       <div className={styles.graphContainer} style={{ height: dimensions.height }}>
         <ForceGraph2D
           ref={graphRef}
@@ -195,6 +309,48 @@ export function RelationshipsGraph({ roomId, onPanelOpen }: RelationshipsGraphPr
         />
       </div>
       <p className={styles.hint}>Цвет связи: красный — негатив, зелёный — позитив</p>
+      <button
+        type="button"
+        className={styles.emulationBtn}
+        onClick={handleEmulationToggle}
+        disabled={emulationLoading}
+        title={emulationRunning ? 'Остановить эмуляцию' : 'Запустить эмуляцию'}
+        aria-label={emulationRunning ? 'Остановить эмуляцию' : 'Запустить эмуляцию'}
+      >
+        {emulationLoading ? '…' : emulationRunning ? '⏹ Остановить' : '▶ Старт'}
+      </button>
+      <div className={styles.speedBlock}>
+        <label className={styles.speedLabel} htmlFor="speed-slider">
+          Скорость
+        </label>
+        <input
+          id="speed-slider"
+          type="range"
+          min={1}
+          max={3}
+          step={1}
+          value={speed}
+          onChange={handleSliderChange}
+          onPointerDown={(e) => e.currentTarget.setPointerCapture(e.pointerId)}
+          onPointerUp={handleSliderRelease}
+          className={styles.speedSlider}
+          aria-label="Скорость эмуляции"
+        />
+        <div className={styles.speedTicks}>
+          {SPEED_VALUES.map((v) => (
+            <button
+              key={v}
+              type="button"
+              className={speed === v ? styles.speedTickActive : styles.speedTick}
+              onClick={() => handleSpeedChange(v)}
+              disabled={speedLoading}
+              aria-pressed={speed === v}
+            >
+              {v}x
+            </button>
+          ))}
+        </div>
+      </div>
     </div>
   )
 }
