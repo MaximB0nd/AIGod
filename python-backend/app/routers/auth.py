@@ -1,6 +1,9 @@
+import logging
 from datetime import timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
+
+logger = logging.getLogger("aigod.auth")
 from sqlalchemy.orm import Session
 
 from app.config import config
@@ -48,6 +51,7 @@ def register(data: AuthRegisterIn, db: Session = Depends(get_db)):
 @router.post("/login", response_model=AuthOut)
 def login(data: AuthLoginIn, db: Session = Depends(get_db)):
     """Вход по email и паролю."""
+    logger.info("POST /login email=%s", data.email)
     user = db.query(User).filter(User.email == data.email).first()
     if not user or not verify_password(data.password, user.hashed_password):
         raise HTTPException(
@@ -65,6 +69,7 @@ def login(data: AuthLoginIn, db: Session = Depends(get_db)):
         data={"sub": user.email},
         expires_delta=timedelta(minutes=config.ACCESS_TOKEN_EXPIRE_MINUTES),
     )
+    logger.info("Login OK user_id=%s", user.id)
     return AuthOut(
         id=str(user.id),
         email=user.email,
