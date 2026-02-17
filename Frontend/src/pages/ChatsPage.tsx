@@ -54,7 +54,7 @@ export function ChatsPage() {
   const [chatForAddModal, setChatForAddModal] = useState<Chat | null>(null)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [sidebarWidth, setSidebarWidth] = useState(getStoredWidth)
-  const [rightPanelCollapsed, setRightPanelCollapsed] = useState(false)
+  const [rightPanelCollapsed, setRightPanelCollapsed] = useState(true)
   const [rightPanelWidth, setRightPanelWidth] = useState(getStoredRightWidth)
   const [resizingSide, setResizingSide] = useState<'left' | 'right' | null>(null)
   const widthRef = useRef(sidebarWidth)
@@ -150,6 +150,20 @@ export function ChatsPage() {
     setChatForAddModal(null)
   }, [])
 
+  const handleToggleSidebar = useCallback(() => {
+    setSidebarCollapsed((prev) => {
+      if (prev) setRightPanelCollapsed(true)
+      return !prev
+    })
+  }, [])
+
+  const handleToggleRightPanel = useCallback(() => {
+    setRightPanelCollapsed((prev) => {
+      if (prev) setSidebarCollapsed(true)
+      return !prev
+    })
+  }, [])
+
   if (isLoading) {
     return (
       <div className={styles.loading}>
@@ -182,9 +196,9 @@ export function ChatsPage() {
       <div className={styles.mainWrapper}>
         <ChatView
           onAddCharacter={activeChat ? handleAddCharacter : undefined}
-          onToggleSidebar={() => setSidebarCollapsed((v) => !v)}
+          onToggleSidebar={handleToggleSidebar}
           sidebarCollapsed={sidebarCollapsed}
-          onToggleRightPanel={() => setRightPanelCollapsed((v) => !v)}
+          onToggleRightPanel={handleToggleRightPanel}
           rightPanelCollapsed={rightPanelCollapsed}
         />
       </div>
