@@ -284,6 +284,27 @@
   color: var(--tg-muted);
 }
 
+.ttsBtn {
+  margin-left: auto;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  color: var(--tg-muted);
+  transition: color 0.15s, background 0.15s;
+}
+
+.ttsBtn:hover {
+  background: var(--tg-hover);
+  color: var(--tg-accent);
+}
+
 .content {
   margin: 0;
   font-size: 0.875rem;
