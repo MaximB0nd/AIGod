@@ -663,7 +663,7 @@ async def send_message(
                 "agentResponse": None,
             }
             logger.info("Оркестрация: broadcast user msg id=%s", msg.id)
-            background_tasks.add_task(broadcast_chat_message, room.id, payload)
+            await broadcast_chat_message(room.id, payload)
             return MessageOut(
                 id=str(msg.id),
                 text=msg.text,
@@ -702,7 +702,7 @@ async def send_message(
         "agentResponse": agent_response,
     }
     logger.info("Broadcast user msg id=%s agentResponse_len=%d", payload_user["id"], len(agent_response) if agent_response else 0)
-    background_tasks.add_task(broadcast_chat_message, room.id, payload_user)
+    await broadcast_chat_message(room.id, payload_user)
 
     # Отдельное событие для сообщения агента (чтобы фронт мог показать два пузыря)
     payload_agent = {
@@ -713,7 +713,7 @@ async def send_message(
         "timestamp": agent_msg.created_at.isoformat() if agent_msg.created_at else "",
         "agentResponse": None,
     }
-    background_tasks.add_task(broadcast_chat_message, room.id, payload_agent)
+    await broadcast_chat_message(room.id, payload_agent)
 
     # Обновить память и эмоции в фоне
     background_tasks.add_task(

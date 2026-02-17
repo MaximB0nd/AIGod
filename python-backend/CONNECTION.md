@@ -76,8 +76,14 @@ Authorization: Bearer <token>
 5. `POST /api/rooms/{roomId}/agents` с `{ name, character, avatar }` → агент добавлен
 
 ### Чат и WebSocket
-1. `POST /api/rooms/{roomId}/agents/{agentId}/messages` с `{ "text": "Привет", "sender": "user" }` → ответ агента
-2. Подключиться к WebSocket: `ws://localhost:8000/api/rooms/{roomId}/chat?token=<token>` для получения сообщений в реальном времени
+
+**Важно:** WebSocket нужно подключать до отправки сообщений. Иначе клиент не получит broadcast.
+
+1. **При открытии чата:** подключиться к `ws://localhost:8000/api/rooms/{roomId}/chat?token=<token>`
+2. **Загрузить историю:** `GET /api/rooms/{roomId}/messages` или `GET /api/rooms/{roomId}/feed`
+3. **Отправить сообщение:** `POST /api/rooms/{roomId}/agents/{agentId}/messages` с `{ "text": "Привет", "sender": "user" }`
+
+Если в комнате несколько агентов — укажите `agentId` того, кому адресовано сообщение (например, первого из `GET /api/rooms/{roomId}/agents`).
 
 ---
 

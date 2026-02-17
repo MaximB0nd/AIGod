@@ -15,7 +15,10 @@ async def broadcast_chat_message(room_id: int, payload: dict) -> None:
     Рассылает новое сообщение в чат комнаты всем подключённым клиентам.
     payload: { id, text, sender, agentId?, timestamp, agentResponse? }
     """
-    logger.debug("broadcast_chat_message room_id=%s payload_id=%s sender=%s", room_id, payload.get("id"), payload.get("sender"))
+    logger.info(
+        "broadcast_chat_message room_id=%s payload_id=%s sender=%s",
+        room_id, payload.get("id"), payload.get("sender"),
+    )
     await chat_manager.broadcast(room_id, {"type": "message", "payload": payload})
 
 

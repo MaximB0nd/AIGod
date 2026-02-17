@@ -46,6 +46,7 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 - Вызывается **YandexGPT** через `YandexAgentClient`
 - Ответ сохраняется в БД, возвращается в `agentResponse`
 - Сообщение и ответ рассылаются в WebSocket `/api/rooms/{roomId}/chat`
+- **WebSocket должен быть подключён до отправки** — иначе broadcast не доставит сообщения клиенту
 
 ---
 

@@ -594,6 +594,8 @@ Authorization: Bearer <token>
 ### POST /api/rooms/{roomId}/agents/{agentId}/messages
 Отправить сообщение агенту. **Требует Bearer token.**
 
+Сообщения рассылаются в WebSocket `/api/rooms/{roomId}/chat`. Клиент должен быть подключён к WebSocket до отправки сообщения — иначе broadcast не дойдёт. При открытии чата также вызови `GET /api/rooms/{roomId}/messages` для загрузки истории.
+
 **Тело (JSON):**
 ```json
 {
@@ -790,6 +792,8 @@ Authorization: Bearer <token>
 Чат комнаты: сообщения от агентов и системные события в реальном времени.
 
 **Подключение:** `ws://localhost:8000/api/rooms/1/chat?token=JWT`
+
+**Важно:** Подключай WebSocket при открытии чата — до того, как пользователь отправит сообщение. Если подключить после отправки, broadcast уже произойдёт и клиент не получит сообщение.
 
 **Входящие от сервера:**
 - `{"type": "connected", "payload": {"roomId": "1", ...}}` — при подключении

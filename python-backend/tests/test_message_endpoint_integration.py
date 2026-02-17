@@ -152,7 +152,7 @@ def test_send_message_triggers_websocket_broadcast(
     auth_headers: dict,
     room_with_agent,
 ):
-    """Broadcast в WebSocket вызывается с payload, содержащим agentResponse."""
+    """Broadcast в WebSocket вызывается для сообщения пользователя и ответа агента."""
     room, agent = room_with_agent
     mock_get_response.return_value = "Ответ для рассылки"
 
@@ -162,9 +162,13 @@ def test_send_message_triggers_websocket_broadcast(
         headers=auth_headers,
     )
 
-    mock_broadcast.assert_called_once()
-    call_args = mock_broadcast.call_args
-    assert call_args[0][0] == room.id  # room_id
-    payload = call_args[0][1]
-    assert payload["text"] == "Сообщение"
-    assert payload["agentResponse"] == "Ответ для рассылки"
+    assert mock_broadcast.call_count == 2
+    calls = mock_broadcast.call_args_list
+    # Первый вызов — сообщение пользователя с agentResponse
+    payload_user = calls[0][0][1]
+    assert payload_user["text"] == "Сообщение"
+    assert payload_user["agentResponse"] == "Ответ для рассылки"
+    # Второй вызов — сообщение агента
+    payload_agent = calls[1][0][1]
+    assert payload_agent["text"] == "Ответ для рассылки"
+    assert payload_agent["sender"] == agent.name
