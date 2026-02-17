@@ -9,6 +9,7 @@ import { ChatList } from '@/components/ChatList'
 import { ChatView } from '@/components/ChatView'
 import { CreateChatModal } from '@/components/CreateChatModal'
 import { AddCharacterModal } from '@/components/AddCharacterModal'
+import { RelationshipsGraph } from '@/components/RelationshipsGraph'
 import { STORAGE_KEYS } from '@/utils/storage'
 import styles from './ChatsPage.module.css'
 
@@ -233,7 +234,10 @@ export function ChatsPage() {
         style={rightPanelCollapsed ? undefined : { width: rightPanelWidth, minWidth: rightPanelWidth }}
       >
         <div className={styles.rightPanel}>
-          <p className={styles.rightPanelPlaceholder}>Правая панель</p>
+          <RelationshipsGraph
+            roomId={activeChat?.id ?? null}
+            onPanelOpen={!rightPanelCollapsed}
+          />
         </div>
       </div>
       <CreateChatModal

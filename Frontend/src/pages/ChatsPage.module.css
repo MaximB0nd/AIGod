@@ -96,6 +96,7 @@
 .rightPanel {
   height: 100%;
   padding: 16px;
+  overflow-x: hidden;
   overflow-y: auto;
 }
 
