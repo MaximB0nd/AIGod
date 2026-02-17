@@ -2,7 +2,7 @@
 Сервис оркестрации для комнат.
 
 Создаёт OrchestrationClient + YandexAgentAdapter из room.agents,
-как в examples/usage.py.
+как в examples/usage.py. Обогащает промпты контекстом отношений.
 """
 from typing import Optional
 
@@ -13,7 +13,32 @@ from app.services.agents_orchestration.strategies import (
     NarratorStrategy,
 )
 from app.services.agents_orchestration.yandex_adapter import YandexAgentAdapter
+from app.services.prompt_enhancer import enhance_prompt_with_relationship
+from app.services.relationship_model_service import get_relationship_manager
 from app.services.yandex_client.yandex_agent_client import YandexAgentClient
+
+
+class _RelationshipEnhancingAdapter:
+    """Оборачивает YandexAgentAdapter, добавляя контекст отношений в промпт."""
+
+    def __init__(self, inner: YandexAgentAdapter, room):
+        self.inner = inner
+        self.room = room
+        self._rel_manager = None
+
+    def _get_rel_manager(self):
+        if self._rel_manager is None:
+            try:
+                self._rel_manager = get_relationship_manager(self.room)
+            except Exception:
+                pass
+        return self._rel_manager
+
+    async def __call__(self, agent_name: str, session_id: str, prompt: str, context=None) -> str:
+        rel_manager = self._get_rel_manager()
+        if rel_manager:
+            prompt = enhance_prompt_with_relationship(rel_manager, agent_name, prompt)
+        return await self.inner(agent_name, session_id, prompt, context)
 
 
 def create_orchestration_client(room) -> Optional[OrchestrationClient]:
@@ -36,8 +61,9 @@ def create_orchestration_client(room) -> Optional[OrchestrationClient]:
     except Exception:
         return None
 
-    adapter = YandexAgentAdapter(yandex_client)
-    adapter.register_agents_from_room(room.agents)
+    base_adapter = YandexAgentAdapter(yandex_client)
+    base_adapter.register_agents_from_room(room.agents)
+    adapter = _RelationshipEnhancingAdapter(base_adapter, room)
 
     client = OrchestrationClient(agent_names, adapter)
 

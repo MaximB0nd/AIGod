@@ -1,8 +1,10 @@
 """Роуты для агентов в контексте комнаты."""
+import asyncio
+
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
-from app.database.sqlite_setup import get_db
+from app.database.sqlite_setup import get_db, SessionLocal
 from app.dependencies import get_current_user, get_room_for_user
 from app.models.agent import Agent
 from app.models.event import Event
@@ -35,6 +37,11 @@ from app.schemas.api import (
 from app.services.llm_service import get_agent_response
 from app.services.orchestration_background import registry
 from app.services.relationship_model_service import get_relationship_manager
+from app.services.room_services_registry import (
+    get_emotional_integration,
+    get_memory_integration,
+    ensure_emotional_agents_registered,
+)
 from app.utils.mood import get_agent_mood
 from app.ws import broadcast_chat_event, broadcast_chat_message, broadcast_graph_edge
 
@@ -45,6 +52,46 @@ router = APIRouter(prefix="/{room_id}", tags=["room-agents"])
 
 def _agent_in_room(room: Room, agent_id: int) -> Agent | None:
     return next((a for a in room.agents if a.id == agent_id), None)
+
+
+def _update_room_services_on_message(
+    room_id: int,
+    agents: list,
+    user_text: str,
+    user_sender: str,
+    agent_response: str,
+    agent_name: str,
+) -> None:
+    """Фоновая задача: обновить память и эмоции после обмена сообщениями."""
+    db = SessionLocal()
+    try:
+        room = db.query(Room).filter(Room.id == room_id).first()
+        if not room:
+            return
+        db.refresh(room)
+        agent_names = [a.name for a in room.agents]
+        conv_id = f"room_{room_id}"
+
+        # Память
+        mem = get_memory_integration(room)
+        if mem:
+            try:
+                asyncio.run(mem.on_user_message(user_text, conv_id, agent_names))
+                asyncio.run(
+                    mem.on_agent_message(
+                        agent_response, agent_name, conv_id,
+                        metadata={"room_id": room_id},
+                    )
+                )
+            except Exception as e:
+                print(f"Memory update failed: {e}")
+
+        # Эмоции
+        emo = get_emotional_integration(room)
+        if emo:
+            ensure_emotional_agents_registered(room, emo)
+    finally:
+        db.close()
 
 
 def _agent_summary(agent: Agent) -> AgentSummaryOut:
@@ -317,6 +364,34 @@ def get_relationship_model(
     return state
 
 
+@router.get("/emotional-state")
+def get_emotional_state(room: Room = Depends(get_room_for_user)):
+    """Эмоциональное состояние агентов комнаты (модуль emotional_intelligence)."""
+    integration = get_emotional_integration(room)
+    if not integration:
+        return {"agents": {}, "message": "Emotional service unavailable"}
+    ensure_emotional_agents_registered(room, integration)
+    states = integration.get_all_emotional_states()
+    name_to_id = {a.name: str(a.id) for a in room.agents}
+    return {"agent_ids": name_to_id, "states": states}
+
+
+@router.get("/context-memory")
+def get_context_memory(
+    room: Room = Depends(get_room_for_user),
+    query: str = Query("", description="Поиск по контексту"),
+):
+    """Контекст разговора комнаты (модуль context_memory)."""
+    integration = get_memory_integration(room)
+    if not integration:
+        return {"context": "", "message": "Memory service unavailable"}
+    try:
+        summary = integration.get_conversation_summary()
+        return {"summary": summary or "", "stats": integration.get_stats()}
+    except Exception as e:
+        return {"context": "", "error": str(e)}
+
+
 @router.post("/events", response_model=EventOut)
 def create_event(
     data: EventCreateIn,
@@ -509,9 +584,9 @@ async def send_message(
             )
         # fallback: если оркестрация не создалась (нет Yandex и т.п.), идём в single
 
-    # Режим single — ChatService
+    # Режим single — ChatService (с обогащением промпта отношениями)
     session_id = f"room_{room.id}_agent_{agent_id}"
-    agent_response = get_agent_response(agent, session_id, data.text)
+    agent_response = get_agent_response(agent, session_id, data.text, room=room)
 
     agent_msg = Message(
         room_id=room.id,
@@ -532,6 +607,17 @@ async def send_message(
         "agentResponse": agent_response,
     }
     background_tasks.add_task(broadcast_chat_message, room.id, payload)
+
+    # Обновить память и эмоции в фоне
+    background_tasks.add_task(
+        _update_room_services_on_message,
+        room.id,
+        room.agents,
+        data.text,
+        data.sender,
+        agent_response,
+        agent.name,
+    )
 
     return MessageOut(
         id=str(msg.id),

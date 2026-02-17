@@ -31,4 +31,7 @@ class EmotionalEvent:
         return {
             "id": self.id,
             "type": self.type.value,
-            "
+            "timestamp": self.timestamp.isoformat(),
+            "source": self.source,
+            "data": self.data,
+        }

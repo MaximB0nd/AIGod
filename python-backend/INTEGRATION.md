@@ -51,7 +51,26 @@ YANDEX_CLOUD_API_KEY=Api-Key your_key
 
 ## Оркестрация (полный цикл)
 
-Модуль `app/services/agents_orchestration/` подключён к YandexGPT через `YandexAgentAdapter` (см. `examples/usage.py`). Для фоновой циркулярной оркестрации агентов в комнате можно использовать `OrchestrationClient` + `CircularStrategy` — это отдельный слой поверх текущих эндпоинтов.
+Модуль `app/services/agents_orchestration/` подключён к YandexGPT через `YandexAgentAdapter` (см. `examples/usage.py`). Для фоновой циркулярной оркестрации агентов в комнате используется `OrchestrationClient` + `CircularStrategy` — при POST message в комнату с `orchestration_type != "single"` сообщение передаётся в очередь оркестрации, ответы приходят via WebSocket.
+
+## Интеграция сервисов (relationship, memory, emotions)
+
+### Обогащение промптов
+- **llm_service.get_agent_response** — при вызове с `room` добавляет контекст отношений (relationship_model) в характер агента
+- **YandexAgentAdapter** (оркестрация) — обёрнут в `_RelationshipEnhancingAdapter`, дополняет промпт отношениями перед вызовом LLM
+
+### Эндпоинты
+- **GET /api/rooms/{id}/relationship-model** — граф отношений, типы (friendly/hostile), статистика
+- **GET /api/rooms/{id}/emotional-state** — эмоциональное состояние агентов комнаты
+- **GET /api/rooms/{id}/context-memory** — сводка контекста разговора (модуль context_memory)
+
+### Обновление при сообщениях
+После POST message (режим single) в фоне вызываются `get_memory_integration` и `get_emotional_integration` — сообщения пользователя и ответа агента сохраняются в память; эмоциональный менеджер обновляет состояния.
+
+### Зависимости
+- **relationship_model** — без внешних зависимостей, синхронизируется с БД (таблица relationships)
+- **emotional_intelligence** — работает без LLM-анализатора (ручное состояние)
+- **context_memory** — без ChromaDB использует только short-term (in-memory)
 
 ## Тесты
 

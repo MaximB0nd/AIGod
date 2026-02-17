@@ -97,7 +97,12 @@ def test_send_message_calls_llm_for_single_mode(
     )
 
     assert response.status_code == 200
-    mock_get_response.assert_called_once_with(agent, f"room_{room.id}_agent_{agent.id}", "Привет")
+    mock_get_response.assert_called_once()
+    call_args = mock_get_response.call_args
+    assert call_args[0][0] == agent
+    assert call_args[0][1] == f"room_{room.id}_agent_{agent.id}"
+    assert call_args[0][2] == "Привет"
+    assert call_args[1].get("room") == room
 
 
 @patch("app.routers.room_agents.registry")
