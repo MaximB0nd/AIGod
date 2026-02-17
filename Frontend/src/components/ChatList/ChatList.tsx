@@ -21,15 +21,15 @@ export function ChatList({ onCreateChat, onDeleteChat, onAddCharacter }: ChatLis
   return (
     <aside className={styles.sidebar}>
       <div className={styles.header}>
-        <h1 className={styles.title}>Чаты нейросетей</h1>
+        <h1 className={styles.title}>Комнаты</h1>
         <div className={styles.headerActions}>
           <span className={styles.userName} title={user?.email}>{user?.username ?? '—'}</span>
           <button
             type="button"
             className={styles.createBtn}
             onClick={onCreateChat}
-            title="Создать чат"
-            aria-label="Создать чат"
+            title="Создать комнату"
+            aria-label="Создать комнату"
           >
             +
           </button>
@@ -40,7 +40,7 @@ export function ChatList({ onCreateChat, onDeleteChat, onAddCharacter }: ChatLis
             title="Выйти"
             aria-label="Выйти"
           >
-            Выход
+            <span className={styles.logoutBtnText}>Выход</span>
           </button>
         </div>
       </div>

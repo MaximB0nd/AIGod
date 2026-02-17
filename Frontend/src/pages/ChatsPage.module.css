@@ -18,6 +18,8 @@
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-bento);
   background: var(--tg-sidebar-bg);
+  container-type: inline-size;
+  container-name: sidebar;
 }
 
 .sidebarWrapper.resizing {

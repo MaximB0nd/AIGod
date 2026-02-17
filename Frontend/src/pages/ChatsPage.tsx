@@ -1,5 +1,5 @@
 /**
- * Главная страница — чаты нейросетей в стиле Telegram
+ * Главная страница — комнаты в стиле Telegram
  */
 
 import { useState, useCallback, useEffect, useRef } from 'react'
@@ -12,6 +12,7 @@ import { AddCharacterModal } from '@/components/AddCharacterModal'
 import { STORAGE_KEYS } from '@/utils/storage'
 import styles from './ChatsPage.module.css'
 
+/* Минимум: «Комнаты» + кнопка «+» всегда видны, ячейки списка не меняют размер */
 const SIDEBAR_MIN_WIDTH = 240
 const SIDEBAR_MAX_WIDTH = 600
 const SIDEBAR_DEFAULT_WIDTH = 360

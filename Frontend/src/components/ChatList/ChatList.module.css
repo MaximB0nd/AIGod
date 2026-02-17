@@ -226,3 +226,27 @@
   background: rgba(220, 53, 69, 0.1);
   color: #dc3545;
 }
+
+/* Сворачивание при сужении: скрываем userName и текст «Выход» */
+@container sidebar (max-width: 300px) {
+  .userName {
+    display: none;
+  }
+}
+
+@container sidebar (max-width: 260px) {
+  .logoutBtnText {
+    display: none;
+  }
+
+  .logoutBtn {
+    padding: 8px 10px;
+    font-size: 0;
+  }
+
+  .logoutBtn::before {
+    content: '←';
+    font-size: 0.875rem;
+    color: inherit;
+  }
+}
