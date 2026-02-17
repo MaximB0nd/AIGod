@@ -45,15 +45,38 @@ def test_create_room_default_orchestration_type(client: TestClient, auth_headers
     assert response.json()["orchestration_type"] == "single"
 
 
-def test_update_room_orchestration_type(client: TestClient, auth_headers: dict, test_room):
-    """Обновление orchestration_type комнаты."""
+def test_update_room_description_and_speed(client: TestClient, auth_headers: dict, test_room):
+    """Обновление описания и/или скорости комнаты."""
     response = client.patch(
         f"/api/rooms/{test_room.id}",
-        json={"orchestration_type": "narrator"},
+        json={"description": "Новое описание", "speed": 2.0},
         headers=auth_headers,
     )
     assert response.status_code == 200
-    assert response.json()["orchestration_type"] == "narrator"
+    assert response.json()["description"] == "Новое описание"
+    assert response.json()["speed"] == 2.0
+
+
+def test_update_room_only_description(client: TestClient, auth_headers: dict, test_room):
+    """Частичное обновление: только описание."""
+    response = client.patch(
+        f"/api/rooms/{test_room.id}",
+        json={"description": "Только описание"},
+        headers=auth_headers,
+    )
+    assert response.status_code == 200
+    assert response.json()["description"] == "Только описание"
+
+
+def test_update_room_only_speed(client: TestClient, auth_headers: dict, test_room):
+    """Частичное обновление: только скорость."""
+    response = client.patch(
+        f"/api/rooms/{test_room.id}",
+        json={"speed": 0.5},
+        headers=auth_headers,
+    )
+    assert response.status_code == 200
+    assert response.json()["speed"] == 0.5
 
 
 @patch("app.routers.room_agents.get_agent_response")

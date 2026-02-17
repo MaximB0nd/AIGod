@@ -36,10 +36,9 @@ class RoomCreateIn(BaseModel):
 
 
 class RoomUpdateIn(BaseModel):
-    name: Optional[str] = Field(None, min_length=1)
+    """Обновление комнаты. Только описание и/или скорость, оба поля опциональны."""
     description: Optional[str] = None
-    speed: Optional[float] = None
-    orchestration_type: Optional[OrchestrationTypeLiteral] = None
+    speed: Optional[float] = Field(None, ge=0.1, le=10.0)
 
 
 class RoomOut(BaseModel):

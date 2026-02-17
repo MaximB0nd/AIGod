@@ -65,15 +65,11 @@ def update_room(
     room: Room = Depends(get_room_for_user),
     db: Session = Depends(get_db),
 ):
-    """Изменить комнату."""
-    if data.name is not None:
-        room.name = data.name
+    """Изменить описание и/или скорость комнаты."""
     if data.description is not None:
         room.description = data.description
     if data.speed is not None:
         room.speed = data.speed
-    if data.orchestration_type is not None:
-        room.orchestration_type = data.orchestration_type
     room.updated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(room)
