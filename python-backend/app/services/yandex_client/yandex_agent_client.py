@@ -127,10 +127,6 @@ class YandexAgentClient:
             print(f"Yandex AIAssistant error: {e}")
             return "Ой-ой, связь пропала! Попробуй позже."
 
-
-
-
-
 class Agent:
     def __init__(self, name: str, prompt: str):
         self.name = name
