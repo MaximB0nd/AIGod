@@ -28,6 +28,7 @@ interface ChatContextValue {
   selectChat: (chat: Chat | null) => void
   createChat: (data: { title: string; description?: string }) => Promise<Chat>
   addCharacterToChat: (chatId: string, presetId: string) => Promise<void>
+  createAgentToChat: (chatId: string, data: { name: string; character: string; avatar?: string }) => Promise<void>
   removeCharacterFromChat: (chatId: string, agentId: string) => Promise<void>
   sendMessage: (chatId: string, agentId: string, content: string) => Promise<void>
   sendEvent: (chatId: string, description: string, agentIds?: string[]) => Promise<void>
@@ -116,40 +117,12 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const handleStreamMessage = useCallback(
     (msg: StreamMessage) => {
       if (!activeChat) return
-      if (msg.type === 'event') {
-        const p = msg.payload as { id: string; description: string; agentIds: string[]; timestamp: string }
-        setFeed((prev) =>
-          [
-            ...prev,
-            {
-              type: 'event' as const,
-              data: {
-                id: p.id,
-                chatId: activeChat.id,
-                type: 'user_event' as const,
-                description: p.description,
-                agentIds: p.agentIds ?? [],
-                timestamp: p.timestamp,
-              },
-            },
-          ].sort(sortFeed)
-        )
-      }
-      if (msg.type === 'message') {
-        const p = msg.payload as { id: string; text: string; agentId?: string; timestamp: string }
-        const data: Message = {
-          id: p.id,
-          chatId: activeChat.id,
-          characterId: p.agentId ?? '',
-          content: p.text,
-          timestamp: p.timestamp,
-          isRead: false,
-        }
-        setMessages((prev) => [...prev, data])
-        setFeed((prev) => [...prev, { type: 'message', data }].sort(sortFeed))
+      // Источник истины — сервер: при любом обновлении перезапрашиваем данные
+      if (msg.type === 'event' || msg.type === 'message' || msg.type === 'agent_update') {
+        loadMessages(activeChat.id)
       }
     },
-    [activeChat]
+    [activeChat, loadMessages]
   )
 
   useRoomStream({
@@ -171,27 +144,44 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     return updated
   }, [])
 
-  const addCharacterToChat = useCallback(async (chatId: string, presetId: string) => {
-    const updated = await chatApi.addCharacterToChat(chatId, presetId)
-    if (updated) {
-      setChats((prev) => prev.map((c) => (c.id === chatId ? updated : c)))
+  const addCharacterToChat = useCallback(
+    async (chatId: string, presetId: string) => {
+      await chatApi.addCharacterToChat(chatId, presetId)
+      const chatsData = await chatApi.fetchChats()
+      setChats(chatsData)
       if (activeChat?.id === chatId) {
-        setActiveChat(updated)
+        setActiveChat(chatsData.find((c) => c.id === chatId) ?? null)
         await loadMessages(chatId)
       }
-    }
-  }, [activeChat?.id, loadMessages])
+    },
+    [activeChat?.id, loadMessages]
+  )
 
-  const removeCharacterFromChat = useCallback(async (chatId: string, agentId: string) => {
-    const updated = await chatApi.removeCharacterFromChat(chatId, agentId)
-    if (updated) {
-      setChats((prev) => prev.map((c) => (c.id === chatId ? updated : c)))
+  const createAgentToChat = useCallback(
+    async (chatId: string, data: { name: string; character: string; avatar?: string }) => {
+      await chatApi.createAgentInChat(chatId, data)
+      const chatsData = await chatApi.fetchChats()
+      setChats(chatsData)
       if (activeChat?.id === chatId) {
-        setActiveChat(updated)
+        setActiveChat(chatsData.find((c) => c.id === chatId) ?? null)
         await loadMessages(chatId)
       }
-    }
-  }, [activeChat?.id, loadMessages])
+    },
+    [activeChat?.id, loadMessages]
+  )
+
+  const removeCharacterFromChat = useCallback(
+    async (chatId: string, agentId: string) => {
+      await chatApi.removeCharacterFromChat(chatId, agentId)
+      const chatsData = await chatApi.fetchChats()
+      setChats(chatsData)
+      if (activeChat?.id === chatId) {
+        setActiveChat(chatsData.find((c) => c.id === chatId) ?? null)
+        await loadMessages(chatId)
+      }
+    },
+    [activeChat?.id, loadMessages]
+  )
 
   const sendMessage = useCallback(async (chatId: string, agentId: string, content: string) => {
     await chatApi.sendMessage(chatId, agentId, content)
@@ -222,6 +212,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     selectChat,
     createChat,
     addCharacterToChat,
+    createAgentToChat,
     removeCharacterFromChat,
     sendMessage,
     sendEvent,

@@ -40,17 +40,7 @@ export async function fetchChats(): Promise<Chat[]> {
   for (const room of roomList) {
     const agents = await agentsApi.fetchAgents(room.id)
     const chat = roomToChat(room, agents.map((a) => a.id))
-    if (chat) {
-      if (agents.length > 0) {
-        const last = agents[agents.length - 1]
-        chat.lastMessage = {
-          content: last.mood?.mood ?? '',
-          timestamp: new Date().toISOString(),
-          characterId: last.id,
-        }
-      }
-      chats.push(chat)
-    }
+    if (chat) chats.push(chat)
   }
   return chats
 }
@@ -165,29 +155,32 @@ export async function createChat(data: {
 export async function addCharacterToChat(
   chatId: string,
   presetId: string
-): Promise<Chat | null> {
+): Promise<void> {
   const preset = CHARACTER_PRESETS.find((p) => p.id === presetId)
-  if (!preset) return null
+  if (!preset) return
 
-  const agent = await agentsApi.createAgent(chatId, {
+  await agentsApi.createAgent(chatId, {
     name: preset.name,
     character: preset.character,
   })
+}
 
-  const chat = await fetchChat(chatId)
-  if (!chat) return null
-  return {
-    ...chat,
-    characterIds: [...chat.characterIds, agent.id],
-  }
+/**
+ * Создать агента в комнате (POST /api/rooms/{roomId}/agents)
+ * @see docs/BACKEND_API_REQUIREMENTS.md § 3.3
+ */
+export async function createAgentInChat(
+  chatId: string,
+  data: { name: string; character: string; avatar?: string }
+): Promise<void> {
+  await agentsApi.createAgent(chatId, data)
 }
 
 export async function removeCharacterFromChat(
   chatId: string,
   agentId: string
-): Promise<Chat | null> {
+): Promise<void> {
   await agentsApi.deleteAgent(chatId, agentId)
-  return fetchChat(chatId)
 }
 
 export async function sendMessage(
