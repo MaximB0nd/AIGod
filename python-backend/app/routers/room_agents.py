@@ -1,5 +1,5 @@
 """Роуты для агентов в контексте комнаты."""
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.database.sqlite_setup import get_db
@@ -14,6 +14,7 @@ from app.models.room import Room
 from app.models.user import User
 from app.schemas.api import (
     AgentCreateIn,
+    RelationshipUpdateIn,
     AgentFullOut,
     AgentSummaryOut,
     AgentsListOut,
@@ -32,8 +33,9 @@ from app.schemas.api import (
     SuccessOut,
 )
 from app.utils.mood import get_agent_mood
+from app.ws import broadcast_chat_event, broadcast_chat_message, broadcast_graph_edge
 
-# Endpoint для управления агентами, их связами с команатми и т.д
+# Endpoint для управления агентами, их связями с комнатами и т.д.
 
 router = APIRouter(prefix="/{room_id}", tags=["room-agents"])
 
@@ -202,6 +204,63 @@ def get_agent_plans(
     )
 
 
+@router.patch("/relationships")
+def update_relationship(
+    data: RelationshipUpdateIn,
+    background_tasks: BackgroundTasks,
+    room: Room = Depends(get_room_for_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Обновить ребро графа отношений.
+    agent1Id, agent2Id — id агентов в комнате. sympathyLevel: -1 .. 1.
+    Рассылает обновление в WebSocket графа.
+    """
+    a1, a2 = data.agent1Id, data.agent2Id
+    if a1 == a2:
+        raise HTTPException(status_code=400, detail="agent1Id и agent2Id должны отличаться")
+
+    room_agent_ids = [a.id for a in room.agents]
+    if a1 not in room_agent_ids or a2 not in room_agent_ids:
+        raise HTTPException(status_code=400, detail="Оба агента должны быть в комнате")
+
+    # Упорядочиваем пару (agent1 < agent2) для совместимости с БД
+    if a1 > a2:
+        a1, a2 = a2, a1
+
+    rel = db.query(Relationship).filter(
+        Relationship.room_id == room.id,
+        Relationship.agent1_id == a1,
+        Relationship.agent2_id == a2,
+    ).first()
+    if rel:
+        rel.sympathy_value = data.sympathyLevel
+    else:
+        rel = Relationship(
+            room_id=room.id,
+            agent1_id=a1,
+            agent2_id=a2,
+            sympathy_value=data.sympathyLevel,
+        )
+        db.add(rel)
+    db.commit()
+
+    # Рассылка в WebSocket графа
+    background_tasks.add_task(
+        broadcast_graph_edge,
+        room.id,
+        str(a1),
+        str(a2),
+        data.sympathyLevel,
+    )
+
+    return {
+        "from": str(a1),
+        "to": str(a2),
+        "sympathyLevel": data.sympathyLevel,
+    }
+
+
 @router.get("/relationships", response_model=RelationshipsOut)
 def get_relationships(
     room: Room = Depends(get_room_for_user),
@@ -234,6 +293,7 @@ def get_relationships(
 @router.post("/events", response_model=EventOut)
 def create_event(
     data: EventCreateIn,
+    background_tasks: BackgroundTasks,
     room: Room = Depends(get_room_for_user),
     db: Session = Depends(get_db),
 ):
@@ -258,6 +318,17 @@ def create_event(
     db.add(event)
     db.commit()
     db.refresh(event)
+
+    # Рассылка в WebSocket чата
+    payload = {
+        "id": str(event.id),
+        "eventType": event.type,
+        "agentIds": event.agent_ids or [],
+        "description": event.description,
+        "timestamp": event.created_at.isoformat() if event.created_at else "",
+    }
+    background_tasks.add_task(broadcast_chat_event, room.id, payload)
+
     return EventOut(
         id=str(event.id),
         type=event.type,
@@ -270,6 +341,7 @@ def create_event(
 @router.post("/events/broadcast", response_model=EventOut)
 def broadcast_event(
     data: EventBroadcastIn,
+    background_tasks: BackgroundTasks,
     room: Room = Depends(get_room_for_user),
     db: Session = Depends(get_db),
 ):
@@ -284,6 +356,16 @@ def broadcast_event(
     db.add(event)
     db.commit()
     db.refresh(event)
+
+    payload = {
+        "id": str(event.id),
+        "eventType": event.type,
+        "agentIds": event.agent_ids or [],
+        "description": event.description,
+        "timestamp": event.created_at.isoformat() if event.created_at else "",
+    }
+    background_tasks.add_task(broadcast_chat_event, room.id, payload)
+
     return EventOut(
         id=str(event.id),
         type=event.type,
@@ -354,6 +436,7 @@ def update_speed(
 def send_message(
     agent_id: int,
     data: MessageCreateIn,
+    background_tasks: BackgroundTasks,
     room: Room = Depends(get_room_for_user),
     db: Session = Depends(get_db),
 ):
@@ -362,7 +445,6 @@ def send_message(
     if not agent:
         raise HTTPException(status_code=404, detail="Агент не найден")
 
-    # Заглушка: ответ агента генерируется LLM — пока не реализовано
     msg = Message(
         room_id=room.id,
         agent_id=agent_id,
@@ -372,11 +454,23 @@ def send_message(
     db.add(msg)
     db.commit()
     db.refresh(msg)
+
+    # Рассылка в WebSocket чата
+    payload = {
+        "id": str(msg.id),
+        "text": msg.text,
+        "sender": msg.sender,
+        "agentId": str(agent_id),
+        "timestamp": msg.created_at.isoformat() if msg.created_at else "",
+        "agentResponse": None,
+    }
+    background_tasks.add_task(broadcast_chat_message, room.id, payload)
+
     return MessageOut(
         id=str(msg.id),
         text=msg.text,
         sender=msg.sender,
         timestamp=msg.created_at.isoformat() if msg.created_at else "",
         agentId=str(agent_id),
-        agentResponse=None,  # заглушка: нужен LLM-сервис
+        agentResponse=None,
     )
