@@ -2,7 +2,7 @@
 Система событий для отношений
 """
 from enum import Enum
-from typing import Dict, Any
+from typing import Any, Dict, List
 from datetime import datetime
 
 class EventType(str, Enum):

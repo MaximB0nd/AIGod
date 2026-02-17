@@ -34,6 +34,7 @@ from app.schemas.api import (
 )
 from app.services.llm_service import get_agent_response
 from app.services.orchestration_background import registry
+from app.services.relationship_model_service import get_relationship_manager
 from app.utils.mood import get_agent_mood
 from app.ws import broadcast_chat_event, broadcast_chat_message, broadcast_graph_edge
 
@@ -290,6 +291,26 @@ def get_relationships(
                 "sympathyLevel": r.sympathy_value,
             })
     return RelationshipsOut(nodes=nodes, edges=edges)
+
+
+@router.get("/relationship-model")
+def get_relationship_model(
+    room: Room = Depends(get_room_for_user),
+):
+    """
+    Данные об отношениях между агентами из модуля relationship-model.
+
+    Включает граф с типами отношений (friendly, hostile и т.д.), историю изменений
+    и сетевую статистику.
+    """
+    manager = get_relationship_manager(room)
+    state = manager.get_full_state()
+
+    # Добавляем маппинг name -> agent_id для фронтенда
+    name_to_id = {a.name: str(a.id) for a in room.agents}
+    state["agent_ids"] = name_to_id
+
+    return state
 
 
 @router.post("/events", response_model=EventOut)
