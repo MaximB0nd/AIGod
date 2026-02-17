@@ -1,5 +1,5 @@
-from yandex_agent_client import YandexAgentClient 
-from agent_factory import AgentFactory
+from app.services.yandex_client.yandex_agent_client import YandexAgentClient
+from app.services.yandex_client.agent_factory import AgentFactory
 
 class ChatService:
 

@@ -32,6 +32,7 @@ from app.schemas.api import (
     SpeedUpdateIn,
     SuccessOut,
 )
+from app.services.llm_service import get_agent_response
 from app.utils.mood import get_agent_mood
 from app.ws import broadcast_chat_event, broadcast_chat_message, broadcast_graph_edge
 
@@ -440,11 +441,12 @@ def send_message(
     room: Room = Depends(get_room_for_user),
     db: Session = Depends(get_db),
 ):
-    """Отправить сообщение агенту."""
+    """Отправить сообщение агенту и получить ответ от LLM."""
     agent = _agent_in_room(room, agent_id)
     if not agent:
         raise HTTPException(status_code=404, detail="Агент не найден")
 
+    # Сохраняем сообщение пользователя
     msg = Message(
         room_id=room.id,
         agent_id=agent_id,
@@ -455,14 +457,29 @@ def send_message(
     db.commit()
     db.refresh(msg)
 
-    # Рассылка в WebSocket чата
+    # Генерируем ответ агента через YandexGPT
+    session_id = f"room_{room.id}_agent_{agent_id}"
+    agent_response = get_agent_response(agent, session_id, data.text)
+
+    # Сохраняем ответ агента в БД
+    agent_msg = Message(
+        room_id=room.id,
+        agent_id=agent_id,
+        text=agent_response,
+        sender=agent.name,
+    )
+    db.add(agent_msg)
+    db.commit()
+    db.refresh(agent_msg)
+
+    # Рассылка в WebSocket чата (с ответом агента)
     payload = {
         "id": str(msg.id),
         "text": msg.text,
         "sender": msg.sender,
         "agentId": str(agent_id),
         "timestamp": msg.created_at.isoformat() if msg.created_at else "",
-        "agentResponse": None,
+        "agentResponse": agent_response,
     }
     background_tasks.add_task(broadcast_chat_message, room.id, payload)
 
@@ -472,5 +489,5 @@ def send_message(
         sender=msg.sender,
         timestamp=msg.created_at.isoformat() if msg.created_at else "",
         agentId=str(agent_id),
-        agentResponse=None,
+        agentResponse=agent_response,
     )

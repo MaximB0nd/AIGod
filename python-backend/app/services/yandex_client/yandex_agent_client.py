@@ -2,14 +2,13 @@ import os
 from typing import Dict, List, Tuple
 from dotenv import load_dotenv
 from yandex_ai_studio_sdk import AIStudio
-import chromadb
-from chromadb.utils import embedding_functions
 
 load_dotenv()
 
 YANDEX_CLOUD_FOLDER = os.getenv("YANDEX_CLOUD_FOLDER")
 YANDEX_CLOUD_API_KEY = os.getenv("YANDEX_CLOUD_API_KEY")
 TEMPERATURE = 0.5
+
 
 class YandexAgentClient:
 
@@ -28,41 +27,56 @@ class YandexAgentClient:
         )
 
         self.sessions: Dict[str, List[Tuple[str, str]]] = {}
+        self._memory_collection = None
         self._init_memory()
 
     def _init_memory(self):
-        self.chroma_client = chromadb.Client()
+        """Инициализация ChromaDB для памяти агента. Опционально — при ошибке память отключается."""
+        try:
+            import chromadb
+            from chromadb.utils import embedding_functions
 
-        self.embedding_function = embedding_functions.SentenceTransformerEmbeddingFunction(
-            model_name="sentence-transformers/all-MiniLM-L6-v2"
-        )
-
-        self.memory_collection = self.chroma_client.get_or_create_collection(
-            name="agents_memory",
-            embedding_function=self.embedding_function
-        )
+            self.chroma_client = chromadb.Client()
+            self.embedding_function = embedding_functions.SentenceTransformerEmbeddingFunction(
+                model_name="sentence-transformers/all-MiniLM-L6-v2"
+            )
+            self._memory_collection = self.chroma_client.get_or_create_collection(
+                name="agents_memory",
+                embedding_function=self.embedding_function
+            )
+        except Exception as e:
+            print(f"ChromaDB не доступен, память агентов отключена: {e}")
+            self._memory_collection = None
 
     def _store_agent_memory(self, agent, session_id: str, user_text: str, answer: str):
+        if self._memory_collection is None:
+            return
 
-        memory_text = f"""
+        try:
+            memory_text = f"""
         Пользователь сказал: {user_text}
         Агент ответил: {answer}
         """
 
-        memory_id = f"{agent.name}_{session_id}_{len(self.sessions.get(session_id, []))}"
+            memory_id = f"{agent.name}_{session_id}_{len(self.sessions.get(session_id, []))}"
 
-        self.memory_collection.add(
-            documents=[memory_text],
-            metadatas=[{
-                "agent": agent.name,
-                "session_id": session_id
-            }],
-            ids=[memory_id]
-        )  
+            self._memory_collection.add(
+                documents=[memory_text],
+                metadatas=[{
+                    "agent": agent.name,
+                    "session_id": session_id
+                }],
+                ids=[memory_id]
+            )
+        except Exception as e:
+            print("Memory storage error:", e)
 
     def _get_agent_memory(self, agent, session_id: str, query: str, k: int = 5) -> str:
+        if self._memory_collection is None:
+            return ""
+
         try:
-            results = self.memory_collection.query(
+            results = self._memory_collection.query(
                 query_texts=[query],
                 n_results=k,
                 where={"agent": agent.name}
@@ -74,7 +88,6 @@ class YandexAgentClient:
                 return ""
 
             formatted = "\n".join(memories)
-
             return f"\nВоспоминания агента:\n{formatted}\n"
 
         except Exception as e:

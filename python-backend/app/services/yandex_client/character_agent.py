@@ -1,4 +1,4 @@
-from yandex_agent_client import YandexAgentClient 
+from app.services.yandex_client.yandex_agent_client import YandexAgentClient 
 
 class CharacterAgent:
 

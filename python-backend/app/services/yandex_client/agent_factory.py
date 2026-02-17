@@ -1,5 +1,8 @@
-from yandex_agent_client import YandexAgentClient 
-from character_agent import CharacterAgent
+from typing import Dict
+
+from app.services.yandex_client.yandex_agent_client import YandexAgentClient
+from app.services.yandex_client.character_agent import CharacterAgent
+
 
 class AgentFactory:
 

@@ -1,5 +1,5 @@
-from chat_service import ChatService
-from yandex_agent_client import Agent
+from app.services.yandex_client.chat_service import ChatService
+from app.services.yandex_client.yandex_agent_client import Agent
 import time
 
 PROMPTS = [
