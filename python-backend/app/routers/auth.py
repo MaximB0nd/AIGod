@@ -1,55 +1,53 @@
 from datetime import timedelta
 
-from fastapi import APIRouter, Depends, Form, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.config import config
 from app.database.sqlite_setup import get_db
 from app.dependencies import get_current_user
 from app.models.user import User
-from app.schemas.user import Token, UserCreate, UserOut
+from app.schemas.api import AuthLoginIn, AuthOut, AuthRegisterIn
 from app.utils.auth import create_access_token, get_password_hash, verify_password
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-@router.post(
-    "/register",
-    response_model=UserOut,
-    summary="Регистрация",
-    response_description="Созданный пользователь (без пароля)",
-)
-def register(user: UserCreate, db: Session = Depends(get_db)):
-    """Регистрация: email + пароль (мин. 8 символов)."""
-    db_user = db.query(User).filter(User.email == user.email).first()
+@router.post("/register", response_model=AuthOut)
+def register(data: AuthRegisterIn, db: Session = Depends(get_db)):
+    """Регистрация: email, пароль, username (опционально)."""
+    db_user = db.query(User).filter(User.email == data.email).first()
     if db_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Email already registered",
         )
 
-    hashed_password = get_password_hash(user.password)
-    new_user = User(email=user.email, hashed_password=hashed_password)
+    hashed_password = get_password_hash(data.password)
+    username = data.username or data.email.split("@")[0]
+    new_user = User(email=data.email, username=username, hashed_password=hashed_password)
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
-    return new_user
+
+    access_token = create_access_token(
+        data={"sub": new_user.email},
+        expires_delta=timedelta(minutes=config.ACCESS_TOKEN_EXPIRE_MINUTES),
+    )
+    return AuthOut(
+        id=str(new_user.id),
+        email=new_user.email,
+        username=new_user.username,
+        token=access_token,
+        refreshToken="",
+    )
 
 
-@router.post(
-    "/login",
-    response_model=Token,
-    summary="Логин",
-    response_description="Access token для заголовка Authorization: Bearer <token>",
-)
-def login(
-    username: str = Form(..., description="Email (OAuth2 uses 'username' field)"),
-    password: str = Form(...),
-    db: Session = Depends(get_db),
-):
-    """Логин по email (в форме поле — username) и паролю. Возвращает JWT access_token."""
-    user = db.query(User).filter(User.email == username).first()
-    if not user or not verify_password(password, user.hashed_password):
+@router.post("/login", response_model=AuthOut)
+def login(data: AuthLoginIn, db: Session = Depends(get_db)):
+    """Вход по email и паролю."""
+    user = db.query(User).filter(User.email == data.email).first()
+    if not user or not verify_password(data.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
@@ -65,15 +63,22 @@ def login(
         data={"sub": user.email},
         expires_delta=timedelta(minutes=config.ACCESS_TOKEN_EXPIRE_MINUTES),
     )
-    return Token(access_token=access_token, token_type="bearer")
+    return AuthOut(
+        id=str(user.id),
+        email=user.email,
+        username=user.username,
+        token=access_token,
+        refreshToken="",
+    )
 
 
-@router.get(
-    "/me",
-    response_model=UserOut,
-    summary="Текущий пользователь",
-    response_description="Данные авторизованного пользователя",
-)
-def read_users_me(current_user: User = Depends(get_current_user)):
-    """Получить данные текущего пользователя. Требует Bearer token (кнопка Authorize)."""
-    return current_user
+@router.get("/me", response_model=AuthOut)
+def me(current_user: User = Depends(get_current_user)):
+    """Текущий пользователь (нужен Bearer token). Возвращает данные без пароля, token надо получить через login."""
+    return AuthOut(
+        id=str(current_user.id),
+        email=current_user.email,
+        username=current_user.username,
+        token="",  # клиент должен хранить токен из login
+        refreshToken="",
+    )

@@ -1,101 +1,90 @@
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.database.sqlite_setup import get_db
-from app.dependencies import get_current_user
-from app.models.agent import Agent
+from app.dependencies import get_current_user, get_room_for_user
 from app.models.room import Room
 from app.models.user import User
-from app.schemas.room import RoomCreate, RoomOut, RoomUpdate
+from app.schemas.api import (
+    RoomCreateIn,
+    RoomOut,
+    RoomsListOut,
+    RoomUpdateIn,
+    SuccessOut,
+)
 
 router = APIRouter(prefix="/rooms", tags=["rooms"])
 
 
-@router.get("", response_model=list[RoomOut])
+@router.get("", response_model=RoomsListOut)
 def list_rooms(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Список комнат текущего пользователя."""
+    """Список комнат пользователя."""
     rooms = db.query(Room).filter(Room.user_id == current_user.id).all()
-    return rooms
+    return RoomsListOut(
+        rooms=[RoomOut.from_room(r) for r in rooms]
+    )
 
 
 @router.post("", response_model=RoomOut)
 def create_room(
-    room_data: RoomCreate,
+    data: RoomCreateIn,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """Создать комнату."""
-    room = Room(name=room_data.name, user_id=current_user.id)
+    room = Room(
+        name=data.name,
+        description=data.description,
+        speed=1.0,
+        user_id=current_user.id,
+    )
     db.add(room)
-    db.flush()
-
-    if room_data.agent_ids:
-        agents = db.query(Agent).filter(Agent.id.in_(room_data.agent_ids)).all()
-        if len(agents) != len(room_data.agent_ids):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Один или несколько agent_id не найдены",
-            )
-        room.agents = agents
-
     db.commit()
     db.refresh(room)
-    return room
+    return RoomOut.from_room(room)
 
 
 @router.get("/{room_id}", response_model=RoomOut)
 def get_room(
-    room_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    room: Room = Depends(get_room_for_user),
 ):
-    """Получить комнату по ID."""
-    room = db.query(Room).filter(Room.id == room_id, Room.user_id == current_user.id).first()
-    if not room:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Комната не найдена")
-    return room
+    """Информация о комнате."""
+    return RoomOut.from_room(room, agent_count=len(room.agents))
 
 
 @router.patch("/{room_id}", response_model=RoomOut)
 def update_room(
-    room_id: int,
-    room_data: RoomUpdate,
+    data: RoomUpdateIn,
+    room: Room = Depends(get_room_for_user),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
 ):
-    """Обновить комнату."""
-    room = db.query(Room).filter(Room.id == room_id, Room.user_id == current_user.id).first()
-    if not room:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Комната не найдена")
-
-    if room_data.name is not None:
-        room.name = room_data.name
-    if room_data.agent_ids is not None:
-        agents = db.query(Agent).filter(Agent.id.in_(room_data.agent_ids)).all()
-        if len(agents) != len(room_data.agent_ids):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Один или несколько agent_id не найдены",
-            )
-        room.agents = agents
-
+    """Изменить комнату."""
+    if data.name is not None:
+        room.name = data.name
+    if data.description is not None:
+        room.description = data.description
+    if data.speed is not None:
+        room.speed = data.speed
+    room.updated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(room)
-    return room
+    return RoomOut.from_room(room)
 
 
-@router.delete("/{room_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{room_id}", status_code=204)
 def delete_room(
-    room_id: int,
+    room: Room = Depends(get_room_for_user),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
 ):
     """Удалить комнату."""
-    room = db.query(Room).filter(Room.id == room_id, Room.user_id == current_user.id).first()
-    if not room:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Комната не найдена")
     db.delete(room)
     db.commit()
+
+
+# --- Вложенные роуты (agents, events, feed, relationships) ---
+# Подключаются через include_router с prefix="/rooms"
