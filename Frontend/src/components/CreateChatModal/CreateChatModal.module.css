@@ -1,8 +1,8 @@
 .overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.35);
-  backdrop-filter: blur(4px);
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -11,12 +11,13 @@
 
 .modal {
   width: 100%;
-  max-width: 440px;
+  max-width: 520px;
   margin: 16px;
   background: var(--tg-chat-bg);
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-bento-lg);
   overflow: hidden;
+  border: 1px solid var(--tg-border);
 }
 
 .header {
@@ -109,6 +110,61 @@
 
 .textarea:focus {
   border-color: var(--tg-accent);
+}
+
+/* Bento-сетка выбора режима оркестрации */
+.bentoSection {
+  margin-bottom: 20px;
+}
+
+.sectionLabel {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--tg-text);
+  margin-bottom: 10px;
+}
+
+.bentoGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.bentoCard {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 14px 16px;
+  background: var(--tg-hover);
+  border: 2px solid transparent;
+  border-radius: var(--radius-card);
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  transition: all 0.2s ease;
+}
+
+.bentoCard:hover {
+  background: var(--tg-active);
+}
+
+.bentoCardActive {
+  background: var(--tg-active);
+  border-color: var(--tg-accent);
+}
+
+.bentoCardLabel {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--tg-text);
+}
+
+.bentoCardDesc {
+  font-size: 0.75rem;
+  color: var(--tg-muted);
+  line-height: 1.3;
 }
 
 .actions {

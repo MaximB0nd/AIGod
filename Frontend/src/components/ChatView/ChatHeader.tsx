@@ -62,6 +62,9 @@ export function ChatHeader({ chat, onClose, onAddCharacter, onToggleSidebar, sid
             <h2 className={styles.headerTitle}>{chat.title}</h2>
             <span className={styles.headerSubtitle}>
               {chat.characterIds.length} агентов
+              {chat.orchestration_type && chat.orchestration_type !== 'single' && (
+                <> · {chat.orchestration_type}</>
+              )}
             </span>
           </div>
         </button>
@@ -78,6 +81,9 @@ export function ChatHeader({ chat, onClose, onAddCharacter, onToggleSidebar, sid
             <h2 className={styles.headerTitle}>{chat.title}</h2>
             <span className={styles.headerSubtitle}>
               {chat.characterIds.length} агентов
+              {chat.orchestration_type && chat.orchestration_type !== 'single' && (
+                <> · {chat.orchestration_type}</>
+              )}
             </span>
           </div>
         </>

@@ -138,6 +138,7 @@ export function GroupInfoModal({ isOpen, onClose, chat }: GroupInfoModalProps) {
                   <h3 className={styles.title}>{room.name || chat?.title || 'Группа'}</h3>
                   <span className={styles.meta}>
                     {room.agentCount ?? agents.length ?? chat?.characterIds.length ?? 0} агентов
+                    {room.orchestration_type && room.orchestration_type !== 'single' && ` · ${room.orchestration_type}`}
                     {room.speed != null && ` · Скорость ${room.speed}x`}
                   </span>
                 </div>

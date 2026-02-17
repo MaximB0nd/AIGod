@@ -20,16 +20,24 @@
 .emptyContent {
   text-align: center;
   color: var(--tg-muted);
+  padding: 40px;
+  max-width: 360px;
+  background: var(--tg-chat-bg);
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--tg-border);
+  box-shadow: var(--shadow-bento);
 }
 
 .emptyContent p {
-  margin: 0 0 6px;
-  font-size: 1rem;
-  font-weight: 500;
+  margin: 0 0 8px;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--tg-text);
 }
 
 .emptyContent span {
-  font-size: 0.8125rem;
+  font-size: 0.875rem;
+  line-height: 1.5;
 }
 
 /* Bento хедер */

@@ -76,7 +76,12 @@ export function ChatListItem({ chat, isActive, onClick, onDelete, onAddCharacter
         </div>
         <div className={styles.content}>
           <div className={styles.top}>
-            <span className={styles.name}>{chat.title}</span>
+            <div className={styles.topLeft}>
+              <span className={styles.name}>{chat.title}</span>
+              {chat.orchestration_type && chat.orchestration_type !== 'single' && (
+                <span className={styles.orchestrationBadge}>{chat.orchestration_type}</span>
+              )}
+            </div>
             {time && <span className={styles.time}>{time}</span>}
           </div>
           <p className={styles.preview}>{truncated}</p>

@@ -18,6 +18,7 @@ function roomToChat(room: Awaited<ReturnType<typeof roomsApi.fetchRoom>>, agentI
     title: room.name,
     characterIds: agentIds,
     createdAt: room.createdAt,
+    orchestration_type: room.orchestration_type,
   }
 }
 
@@ -195,11 +196,12 @@ export async function fetchMessagesFeedAndCharacters(chatId: string): Promise<{
 export async function createChat(data: {
   title: string
   description?: string
+  orchestration_type?: 'single' | 'circular' | 'narrator' | 'full_context'
 }): Promise<Chat> {
   const room = await roomsApi.createRoom({
     name: data.title,
-    // description опционально по API — не передаём при пустом значении
     ...(data.description != null && data.description.trim() !== '' && { description: data.description.trim() }),
+    ...(data.orchestration_type != null && { orchestration_type: data.orchestration_type }),
   })
 
   return {
@@ -207,6 +209,7 @@ export async function createChat(data: {
     title: room.name,
     characterIds: [],
     createdAt: room.createdAt,
+    orchestration_type: room.orchestration_type,
   }
 }
 

@@ -4,9 +4,10 @@
   width: 100%;
   overflow: hidden;
   position: relative;
-  padding: 16px;
-  gap: 4px;
+  padding: 20px;
+  gap: 12px;
   box-sizing: border-box;
+  background: var(--color-bg);
 }
 
 .sidebarWrapper {
@@ -15,9 +16,10 @@
   flex-shrink: 0;
   overflow: hidden;
   transition: width 0.25s ease, min-width 0.25s ease;
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-bento);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-bento-lg);
   background: var(--tg-sidebar-bg);
+  border: 1px solid var(--tg-border);
   container-type: inline-size;
   container-name: sidebar;
 }
@@ -68,9 +70,10 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-bento);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-bento-lg);
   background: var(--tg-chat-bg);
+  border: 1px solid var(--tg-border);
 }
 
 .rightPanelWrapper {
@@ -79,9 +82,10 @@
   flex-shrink: 0;
   overflow: hidden;
   transition: width 0.25s ease, min-width 0.25s ease;
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-bento);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-bento-lg);
   background: var(--tg-sidebar-bg);
+  border: 1px solid var(--tg-border);
 }
 
 .rightPanelWrapper.resizing {

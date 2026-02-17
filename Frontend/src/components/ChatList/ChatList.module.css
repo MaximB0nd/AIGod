@@ -57,23 +57,26 @@
 }
 
 .createBtn {
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 1.5rem;
   font-weight: 300;
-  color: var(--tg-accent);
-  background: var(--tg-hover);
+  color: #fff;
+  background: var(--tg-accent);
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-card);
   cursor: pointer;
-  transition: background 0.15s;
+  transition: all 0.2s ease;
+  box-shadow: var(--shadow-soft);
 }
 
 .createBtn:hover {
-  background: var(--tg-active);
+  background: var(--color-accent-hover);
+  box-shadow: var(--shadow-bento);
+  transform: scale(1.02);
 }
 
 .list {
@@ -89,23 +92,28 @@
   display: flex;
   align-items: flex-start;
   gap: 12px;
-  padding: 12px 14px;
-  margin-bottom: 4px;
-  background: transparent;
-  border: none;
-  border-radius: var(--radius-sm);
+  padding: 14px 16px;
+  margin-bottom: 8px;
+  background: var(--tg-sidebar-bg);
+  border: 1px solid var(--tg-border);
+  border-radius: var(--radius-card);
   cursor: pointer;
   text-align: left;
   font-family: inherit;
-  transition: background 0.15s;
+  transition: all 0.2s ease;
+  box-shadow: var(--shadow-soft);
 }
 
 .item:hover {
   background: var(--tg-hover);
+  border-color: var(--tg-accent);
+  box-shadow: var(--shadow-bento);
 }
 
 .item.active {
   background: var(--tg-active);
+  border-color: var(--tg-accent);
+  box-shadow: var(--shadow-bento);
 }
 
 .avatar {
@@ -165,6 +173,14 @@
   margin-bottom: 2px;
 }
 
+.topLeft {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+}
+
 .name {
   font-size: 0.9375rem;
   font-weight: 600;
@@ -172,6 +188,18 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.orchestrationBadge {
+  font-size: 0.625rem;
+  font-weight: 500;
+  padding: 2px 6px;
+  background: var(--tg-active);
+  color: var(--tg-accent);
+  border-radius: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  flex-shrink: 0;
 }
 
 .time {

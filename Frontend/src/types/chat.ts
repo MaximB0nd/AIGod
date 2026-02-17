@@ -9,6 +9,10 @@ export interface Chat {
   characterIds: string[]
   avatar?: string
   createdAt: string
+  /** Режим оркестрации: single | circular | narrator | full_context */
+  orchestration_type?: string
+  lastMessage?: { content: string; timestamp: string }
+  unreadCount?: number
 }
 
 export interface Message {

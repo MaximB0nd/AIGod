@@ -30,7 +30,7 @@ interface ChatContextValue {
   /** Идёт ли подгрузка старых сообщений */
   isLoadMoreLoading: boolean
   selectChat: (chat: Chat | null) => void
-  createChat: (data: { title: string; description?: string }) => Promise<Chat>
+  createChat: (data: { title: string; description?: string; orchestration_type?: 'single' | 'circular' | 'narrator' | 'full_context' }) => Promise<Chat>
   addCharacterToChat: (chatId: string, presetId: string) => Promise<void>
   createAgentToChat: (chatId: string, data: { name: string; character: string; avatar?: string }) => Promise<void>
   removeCharacterFromChat: (chatId: string, agentId: string) => Promise<void>
@@ -201,7 +201,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     setActiveChat(chat)
   }, [])
 
-  const createChat = useCallback(async (data: { title: string; description?: string }) => {
+  const createChat = useCallback(async (data: { title: string; description?: string; orchestration_type?: 'single' | 'circular' | 'narrator' | 'full_context' }) => {
     const chat = await chatApi.createChat(data)
     const chatsData = await chatApi.fetchChats()
     setChats(chatsData)
