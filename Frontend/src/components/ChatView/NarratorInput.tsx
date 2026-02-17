@@ -12,7 +12,7 @@ interface NarratorInputProps {
   chat: Chat
 }
 
-/** Парсит @упоминания из текста и возвращает id агентов */
+/** Парсит @упоминания из текста и возвращает id агентов (без дубликатов) */
 function parseMentions(text: string, characters: Character[], chatCharacterIds: string[]): string[] {
   const mentionRegex = /@([^\s@]+)/g
   const matches = [...text.matchAll(mentionRegex)]
@@ -29,6 +29,32 @@ function parseMentions(text: string, characters: Character[], chatCharacterIds: 
   return [...agentIds]
 }
 
+/** Проверяет, есть ли в тексте осмысленный контент (не только теги и пробелы) */
+function hasMeaningfulText(text: string): boolean {
+  const withoutMentions = text.replace(/@[^\s@]+/g, '').trim()
+  return withoutMentions.length > 0
+}
+
+/** Проверяет, тегнут ли один и тот же агент несколько раз */
+function hasDuplicateAgentMention(
+  text: string,
+  characters: Character[],
+  chatCharacterIds: string[]
+): boolean {
+  const mentionRegex = /@([^\s@]+)/g
+  const matches = [...text.matchAll(mentionRegex)]
+  const chatChars = characters.filter((c) => chatCharacterIds.includes(c.id))
+  const resolvedIds: string[] = []
+  for (const m of matches) {
+    const mention = m[1].toLowerCase()
+    const found = chatChars.find(
+      (c) => c.name.toLowerCase() === mention || c.name.toLowerCase().startsWith(mention)
+    )
+    if (found) resolvedIds.push(found.id)
+  }
+  return resolvedIds.length !== new Set(resolvedIds).size
+}
+
 export function NarratorInput({ chat }: NarratorInputProps) {
   const { characters, sendEvent } = useChat()
   const [text, setText] = useState('')
@@ -42,9 +68,19 @@ export function NarratorInput({ chat }: NarratorInputProps) {
     .map((id) => characters.find((c) => c.id === id))
     .filter(Boolean) as Character[]
 
+  const trimmed = text.trim()
+  const agentIds = parseMentions(trimmed, characters, chat.characterIds)
+  const hasDuplicates = hasDuplicateAgentMention(trimmed, characters, chat.characterIds)
+  const canSend =
+    trimmed.length > 0 &&
+    hasMeaningfulText(trimmed) &&
+    !hasDuplicates
+
   const handleSend = useCallback(() => {
     const trimmed = text.trim()
     if (!trimmed) return
+    if (!hasMeaningfulText(trimmed)) return
+    if (hasDuplicateAgentMention(trimmed, characters, chat.characterIds)) return
 
     const agentIds = parseMentions(trimmed, characters, chat.characterIds)
     sendEvent(chat.id, trimmed, agentIds)
@@ -170,8 +206,14 @@ export function NarratorInput({ chat }: NarratorInputProps) {
         type="button"
         className={styles.sendBtn}
         onClick={handleSend}
-        disabled={!text.trim()}
-        title="Отправить событие"
+        disabled={!canSend}
+        title={
+          !hasMeaningfulText(trimmed) && trimmed
+            ? 'Добавьте описание события (не только тег)'
+            : hasDuplicates
+              ? 'Нельзя указывать одного агента несколько раз'
+              : 'Отправить событие'
+        }
       >
         →
       </button>
