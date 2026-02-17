@@ -7,7 +7,7 @@ python-dotenv==1.0.0
 numpy
 pydantic[email]
 sqlalchemy>=2.0.31
-aiofiles
+aiofiles==23.2.1
 python-multipart==0.0.6
 websockets==12.0
 bcrypt>=4.0.0

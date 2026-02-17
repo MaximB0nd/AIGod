@@ -601,6 +601,40 @@ Authorization: Bearer <token>
 
 ---
 
+## Оркестрация
+
+### POST /api/rooms/{roomId}/orchestration/start
+Запустить оркестрацию для комнаты. **Требует Bearer token.**
+
+Работает только для комнат с `orchestration_type != "single"` (circular, narrator, full_context). Вызывает `OrchestrationClient.start()`.
+
+**Ответ:**
+```json
+{
+  "status": "started",
+  "roomId": 1,
+  "orchestration_type": "circular"
+}
+```
+Ошибка 400 — если `orchestration_type=single` или нет агентов в комнате.
+
+---
+
+### POST /api/rooms/{roomId}/orchestration/stop
+Остановить оркестрацию для комнаты. **Требует Bearer token.**
+
+Вызывает `OrchestrationClient.stop()`.
+
+**Ответ:**
+```json
+{
+  "status": "stopped",
+  "roomId": 1
+}
+```
+
+---
+
 ## Симуляция
 
 ### PATCH /api/rooms/{roomId}/speed
@@ -690,10 +724,10 @@ Authorization: Bearer <token>
 
 ---
 
-## Каталог агентов
+## Шаблоны агентов (default-agents)
 
-### GET /api/agents
-Все агенты в БД (для добавления в комнату). **Без авторизации.**
+### GET /api/default-agents
+Список шаблонов для создания агента по образцу. **Без авторизации.**
 
 **Ответ:**
 ```json
@@ -701,12 +735,36 @@ Authorization: Bearer <token>
   {
     "id": 1,
     "name": "Копатыч",
-    "personality": "Описание характера...",
-    "avatar_url": "(нет аватара)",
-    "state_vector": {}
+    "personality_preview": "Добрый медведь из «Смешариков»...",
+    "avatar_url": null
   }
 ]
 ```
+
+---
+
+### GET /api/default-agents/{id}
+Получить шаблон по id для предзаполнения формы. **Без авторизации.**
+
+**Ответ (готов для POST /api/rooms/{roomId}/agents):**
+```json
+{
+  "id": 1,
+  "name": "Копатыч",
+  "character": "Добрый медведь из «Смешариков»...",
+  "avatar": null
+}
+```
+Клиент подставляет `name`, `character`, `avatar` в форму и отправляет в `POST /api/rooms/{roomId}/agents` для создания агента в комнате.
+
+---
+
+## Каталог агентов
+
+### GET /api/agents
+Агенты в БД (созданные пользователями). **Без авторизации.** Изначально пусто.
+
+**Ответ:** `[]` или массив объектов `{id, name, personality, avatar_url, state_vector}`.
 
 ---
 
@@ -767,12 +825,16 @@ Authorization: Bearer <token>
 | GET | /api/rooms/{roomId}/relationship-model | Bearer |
 | GET | /api/rooms/{roomId}/emotional-state | Bearer |
 | GET | /api/rooms/{roomId}/context-memory | Bearer |
+| POST | /api/rooms/{roomId}/orchestration/start | Bearer |
+| POST | /api/rooms/{roomId}/orchestration/stop | Bearer |
 | POST | /api/rooms/{roomId}/events | Bearer |
 | POST | /api/rooms/{roomId}/events/broadcast | Bearer |
 | GET | /api/rooms/{roomId}/feed | Bearer |
 | GET | /api/rooms/{roomId}/messages | Bearer |
 | POST | /api/rooms/{roomId}/agents/{agentId}/messages | Bearer |
 | PATCH | /api/rooms/{roomId}/speed | Bearer |
+| GET | /api/default-agents | — |
+| GET | /api/default-agents/{id} | — |
 | GET | /api/agents | — |
 | GET | /api/prompts/system | — |
 | GET | /api/prompts/templates | — |

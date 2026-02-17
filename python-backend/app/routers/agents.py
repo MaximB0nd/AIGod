@@ -9,10 +9,10 @@ router = APIRouter(prefix="/agents", tags=["agents"])
 
 @router.get("", summary="Список агентов")
 def get_all_agents(db: Session = Depends(get_db)):
-    """Получить всех агентов из базы."""
+    """Получить агентов из базы (созданные пользователями). Таблица изначально пуста."""
     agents = db.query(Agent).all()
     if not agents:
-        return {"message": "Агенты не найдены", "count": 0}
+        return []
 
     return [
         {

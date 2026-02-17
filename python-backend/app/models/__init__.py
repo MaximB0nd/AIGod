@@ -1,4 +1,5 @@
 from .agent import Agent
+from .default_agent import DefaultAgent
 from .event import Event
 from .memory import Memory
 from .message import Message

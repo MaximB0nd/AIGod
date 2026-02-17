@@ -7,8 +7,10 @@ from app.data.default_agents_data import agents_data
 from app.services.orchestration_background import registry
 from app.database.sqlite_setup import Base, SessionLocal, engine, get_db
 from sqlalchemy import inspect
-from app.models.agent import Agent
+
+from app.models.default_agent import DefaultAgent
 from app.routers.agents import router as agents_router
+from app.routers.default_agents import router as default_agents_router
 from app.routers.auth import router as auth_router
 from app.routers.prompts import router as prompts_router
 from app.routers.room_agents import router as room_agents_router
@@ -70,6 +72,7 @@ API бэкенда для хакатона «Виртуальный мир: си
         {"name": "rooms", "description": "Комнаты"},
         {"name": "room-agents", "description": "Агенты, события, лента в комнате"},
         {"name": "agents", "description": "Каталог агентов (для добавления в комнату)"},
+        {"name": "default-agents", "description": "Шаблоны агентов для предзаполнения формы"},
         {"name": "prompts", "description": "Системные промпты и шаблоны для агентов"},
         {"name": "websocket", "description": "Поток событий в реальном времени"},
     ],
@@ -82,6 +85,7 @@ app.include_router(auth_router, prefix="/api")
 app.include_router(rooms_router, prefix="/api")
 app.include_router(room_agents_router, prefix="/api/rooms")
 app.include_router(agents_router, prefix="/api")
+app.include_router(default_agents_router, prefix="/api")
 app.include_router(prompts_router, prefix="/api")
 app.include_router(websocket_router, prefix="/api")
 
@@ -95,18 +99,23 @@ def root():
 
 
 def init_default_agents(db: Session):
-    count = db.query(Agent).count()
+    """Заполнить таблицу default_agents шаблонами (если пуста). Таблица agents изначально пуста."""
+    count = db.query(DefaultAgent).count()
     if count > 0:
-        print(f"Агенты уже существуют ({count} шт.), пропускаем создание")
+        print(f"Шаблоны агентов уже существуют ({count} шт.), пропускаем")
         return
 
-    print("→ Создаём 6 агентов...")
+    print("→ Создаём шаблоны агентов в default_agents...")
     try:
         for data in agents_data:
-            agent = Agent(**data, state_vector={})
-            db.add(agent)
+            d = DefaultAgent(
+                name=data["name"],
+                personality=data["personality"],
+                avatar_url=data.get("avatar_url"),
+            )
+            db.add(d)
         db.commit()
-        print("→ Успешно добавлено 6 агентов")
+        print(f"→ Добавлено {len(agents_data)} шаблонов")
     except Exception as e:
         db.rollback()
-        print(f"Ошибка при добавлении агентов: {e}")
+        print(f"Ошибка при добавлении шаблонов: {e}")

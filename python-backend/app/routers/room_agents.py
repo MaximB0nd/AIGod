@@ -394,6 +394,43 @@ def get_context_memory(
         return {"context": "", "error": str(e)}
 
 
+@router.post("/orchestration/start")
+async def start_orchestration(room: Room = Depends(get_room_for_user)):
+    """
+    Запустить оркестрацию для комнаты.
+    Работает только для комнат с orchestration_type != "single" (circular, narrator, full_context).
+    Использует OrchestrationClient.start().
+    """
+    orchestration_type = getattr(room, "orchestration_type", None) or "single"
+    if orchestration_type == "single":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Оркестрация недоступна для комнаты с orchestration_type=single",
+        )
+    if not room.agents:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Добавьте агентов в комнату перед запуском оркестрации",
+        )
+    client = await registry.get_or_start(room)
+    if client:
+        return {"status": "started", "roomId": room.id, "orchestration_type": orchestration_type}
+    raise HTTPException(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        detail="Не удалось создать оркестрацию",
+    )
+
+
+@router.post("/orchestration/stop")
+async def stop_orchestration(room: Room = Depends(get_room_for_user)):
+    """
+    Остановить оркестрацию для комнаты.
+    Использует OrchestrationClient.stop().
+    """
+    await registry.stop_room(room.id)
+    return {"status": "stopped", "roomId": room.id}
+
+
 @router.post("/events", response_model=EventOut)
 def create_event(
     data: EventCreateIn,
