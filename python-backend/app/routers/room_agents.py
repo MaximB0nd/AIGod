@@ -33,6 +33,8 @@ from app.schemas.api import (
 )
 from app.utils.mood import get_agent_mood
 
+# Endpoint для управления агентами, их связами с команатми и т.д
+
 router = APIRouter(prefix="/{room_id}", tags=["room-agents"])
 
 

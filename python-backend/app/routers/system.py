@@ -5,6 +5,7 @@ from app.database.sqlite_setup import get_db
 
 router = APIRouter(tags=["system"])
 
+# Системные endpoints для проверки работы системы
 
 @router.get("/", summary="Проверка работы")
 def root():

@@ -13,6 +13,8 @@ from app.utils.auth import create_access_token, get_password_hash, verify_passwo
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
+# Edpoint для регистрации/логина 
+
 @router.post("/register", response_model=AuthOut)
 def register(data: AuthRegisterIn, db: Session = Depends(get_db)):
     """Регистрация: email, пароль, username (опционально)."""

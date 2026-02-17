@@ -3,7 +3,7 @@ from sqlalchemy.sql import func
 
 from app.database.sqlite_setup import Base
 
-
+# Класс пользователя 
 class User(Base):
     __tablename__ = "users"
 

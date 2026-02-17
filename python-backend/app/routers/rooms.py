@@ -15,8 +15,9 @@ from app.schemas.api import (
     SuccessOut,
 )
 
-router = APIRouter(prefix="/rooms", tags=["rooms"])
+# Endpoints для комнат
 
+router = APIRouter(prefix="/rooms", tags=["rooms"])
 
 @router.get("", response_model=RoomsListOut)
 def list_rooms(
