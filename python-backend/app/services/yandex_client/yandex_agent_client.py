@@ -1,9 +1,12 @@
+import logging
 import os
 from typing import Dict, List, Tuple
 from dotenv import load_dotenv
 from yandex_ai_studio_sdk import AIStudio
 
 load_dotenv()
+
+logger = logging.getLogger("aigod.yandex")
 
 YANDEX_CLOUD_FOLDER = os.getenv("YANDEX_CLOUD_FOLDER")
 YANDEX_CLOUD_API_KEY = os.getenv("YANDEX_CLOUD_API_KEY")
@@ -45,7 +48,7 @@ class YandexAgentClient:
                 embedding_function=self.embedding_function
             )
         except Exception as e:
-            print(f"ChromaDB не доступен, память агентов отключена: {e}")
+            logger.warning("ChromaDB недоступен, память отключена: %s", e)
             self._memory_collection = None
 
     def _store_agent_memory(self, agent, session_id: str, user_text: str, answer: str):
@@ -115,6 +118,7 @@ class YandexAgentClient:
 
     def send_message(self, agent, session_id: str, text: str) -> str:
         try:
+            logger.info("YandexGPT запрос agent=%s session=%s", getattr(agent, 'name', agent), session_id)
             model = self.sdk.models.completions("yandexgpt").configure(
                 temperature=TEMPERATURE
             )
@@ -134,10 +138,11 @@ class YandexAgentClient:
             if len(self.sessions[session_id]) > 20:
                 self.sessions[session_id] = self.sessions[session_id][-20:]
 
+            logger.info("YandexGPT ответ agent=%s len=%d", getattr(agent, 'name', agent), len(answer))
             return answer
 
         except Exception as e:
-            print(f"Yandex AIAssistant error: {e}")
+            logger.exception("YandexGPT error: %s", e)
             return "Ой-ой, связь пропала! Попробуй позже."
 
 class Agent:

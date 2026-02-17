@@ -4,9 +4,12 @@
 Обогащает промпт контекстом отношений, памяти и эмоций (если доступны).
 """
 
+import logging
 from typing import Optional
 
 from app.config import config
+
+logger = logging.getLogger("aigod.llm")
 
 
 class AgentPromptAdapter:
@@ -37,9 +40,11 @@ def get_agent_response(
         Текст ответа агента или fallback при ошибке.
     """
     if not config.YANDEX_CLOUD_FOLDER or not config.YANDEX_CLOUD_API_KEY:
+        logger.warning("LLM: Yandex ключи не настроены (YANDEX_CLOUD_FOLDER=%s YANDEX_CLOUD_API_KEY=%s)", bool(config.YANDEX_CLOUD_FOLDER), bool(config.YANDEX_CLOUD_API_KEY))
         return "Агент временно недоступен. Настройте YANDEX_CLOUD_FOLDER и YANDEX_CLOUD_API_KEY в .env."
 
     try:
+        logger.info("LLM: запрос agent=%s session=%s", agent.name, session_id)
         from app.services.yandex_client.chat_service import ChatService
         from app.services.prompt_enhancer import enhance_prompt_with_relationship
         from app.services.prompts import get_system_prompt
@@ -61,7 +66,9 @@ def get_agent_response(
 
         adapter.prompt = base_prompt
         chat_service = ChatService()
-        return chat_service.process_message(adapter, session_id, text)
+        result = chat_service.process_message(adapter, session_id, text)
+        logger.info("LLM: ответ получен agent=%s len=%d", agent.name, len(result) if result else 0)
+        return result
     except Exception as e:
-        print(f"LLM error: {e}")
+        logger.exception("LLM error: %s", e)
         return "Ой-ой, связь пропала! Попробуй позже."

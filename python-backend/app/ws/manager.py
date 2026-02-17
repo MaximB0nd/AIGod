@@ -53,8 +53,10 @@ class ConnectionManager:
             conns = set(self._connections.get(room_id, []))  # copy
 
         if not conns:
+            logger.warning("%s: broadcast room_id=%s — 0 подключений, сообщение не доставлено", self.name, room_id)
             return
 
+        logger.info("%s: broadcast room_id=%s msg_type=%s → %d клиентов", self.name, room_id, message.get("type"), len(conns))
         dead: set[WebSocket] = set()
         for ws in conns:
             try:

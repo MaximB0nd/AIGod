@@ -1,7 +1,10 @@
 """Роуты для агентов в контексте комнаты."""
 import asyncio
+import logging
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
+
+logger = logging.getLogger("aigod.room_agents")
 from sqlalchemy.orm import Session
 
 from app.database.sqlite_setup import get_db, SessionLocal
@@ -538,6 +541,7 @@ def get_messages(
     has_more = len(messages) > limit
     if has_more:
         messages = messages[:limit]
+    logger.info("GET /messages room_id=%s after_id=%s limit=%s → %d сообщений hasMore=%s", room.id, after_id, limit, len(messages), has_more)
     return MessagesListOut(
         messages=[
             MessageItemOut(
@@ -593,8 +597,12 @@ def get_feed(
     items.sort(key=lambda x: (x["timestamp"] or 0), reverse=True)
     items = items[:limit]
 
+    out_items = [item["data"] for item in items]
+    n_events = sum(1 for d in out_items if d.get("type") == "event")
+    n_msgs = sum(1 for d in out_items if d.get("type") == "message")
+    logger.info("GET /feed room_id=%s limit=%s → %d items (events=%d messages=%d)", room.id, limit, len(out_items), n_events, n_msgs)
     return FeedOut(
-        items=[item["data"] for item in items]
+        items=out_items
     )
 
 
@@ -619,11 +627,14 @@ async def send_message(
     db: Session = Depends(get_db),
 ):
     """Отправить сообщение агенту и получить ответ от LLM."""
+    logger.info("POST /agents/%s/messages room_id=%s text_len=%d sender=%s", agent_id, room.id, len(data.text), data.sender)
     agent = _agent_in_room(room, agent_id)
     if not agent:
+        logger.warning("Агент agent_id=%s не найден в комнате room_id=%s", agent_id, room.id)
         raise HTTPException(status_code=404, detail="Агент не найден")
 
     orchestration_type = getattr(room, "orchestration_type", None) or "single"
+    logger.info("orchestration_type=%s", orchestration_type)
 
     # Сохраняем сообщение пользователя
     msg = Message(
@@ -635,11 +646,13 @@ async def send_message(
     db.add(msg)
     db.commit()
     db.refresh(msg)
+    logger.info("Сообщение пользователя сохранено msg_id=%s", msg.id)
 
     if orchestration_type != "single":
         # Режим оркестрации: запускаем в фоне, кладём сообщение в очередь
         client = await registry.get_or_start(room)
         if client:
+            logger.info("Оркестрация: отправка в очередь")
             await client.send_user_message(data.text)
             payload = {
                 "id": str(msg.id),
@@ -649,6 +662,7 @@ async def send_message(
                 "timestamp": msg.created_at.isoformat() if msg.created_at else "",
                 "agentResponse": None,
             }
+            logger.info("Оркестрация: broadcast user msg id=%s", msg.id)
             background_tasks.add_task(broadcast_chat_message, room.id, payload)
             return MessageOut(
                 id=str(msg.id),
@@ -658,11 +672,14 @@ async def send_message(
                 agentId=str(agent_id),
                 agentResponse=None,
             )
+        logger.warning("Оркестрация: client не создан, fallback на single")
         # fallback: если оркестрация не создалась (нет Yandex и т.п.), идём в single
 
     # Режим single — ChatService (с обогащением промпта отношениями)
     session_id = f"room_{room.id}_agent_{agent_id}"
+    logger.info("LLM запрос session_id=%s agent=%s", session_id, agent.name)
     agent_response = get_agent_response(agent, session_id, data.text, room=room)
+    logger.info("LLM ответ получен len=%d: %.80s...", len(agent_response), agent_response[:80] if agent_response else "")
 
     agent_msg = Message(
         room_id=room.id,
@@ -673,8 +690,10 @@ async def send_message(
     db.add(agent_msg)
     db.commit()
     db.refresh(agent_msg)
+    logger.info("Сообщение агента сохранено agent_msg_id=%s", agent_msg.id)
 
-    payload = {
+    # Сообщение пользователя (с ответом агента в agentResponse)
+    payload_user = {
         "id": str(msg.id),
         "text": msg.text,
         "sender": msg.sender,
@@ -682,7 +701,19 @@ async def send_message(
         "timestamp": msg.created_at.isoformat() if msg.created_at else "",
         "agentResponse": agent_response,
     }
-    background_tasks.add_task(broadcast_chat_message, room.id, payload)
+    logger.info("Broadcast user msg id=%s agentResponse_len=%d", payload_user["id"], len(agent_response) if agent_response else 0)
+    background_tasks.add_task(broadcast_chat_message, room.id, payload_user)
+
+    # Отдельное событие для сообщения агента (чтобы фронт мог показать два пузыря)
+    payload_agent = {
+        "id": str(agent_msg.id),
+        "text": agent_response,
+        "sender": agent.name,
+        "agentId": str(agent_id),
+        "timestamp": agent_msg.created_at.isoformat() if agent_msg.created_at else "",
+        "agentResponse": None,
+    }
+    background_tasks.add_task(broadcast_chat_message, room.id, payload_agent)
 
     # Обновить память и эмоции в фоне
     background_tasks.add_task(

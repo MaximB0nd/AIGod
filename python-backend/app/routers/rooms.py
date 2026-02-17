@@ -1,6 +1,9 @@
+import logging
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
+
+logger = logging.getLogger("aigod.rooms")
 from sqlalchemy.orm import Session
 
 from app.database.sqlite_setup import get_db
@@ -26,6 +29,7 @@ def list_rooms(
 ):
     """Список комнат пользователя."""
     rooms = db.query(Room).filter(Room.user_id == current_user.id).all()
+    logger.info("GET /rooms user_id=%s → %d комнат", current_user.id, len(rooms))
     return RoomsListOut(
         rooms=[RoomOut.from_room(r) for r in rooms]
     )
@@ -48,6 +52,7 @@ def create_room(
     db.add(room)
     db.commit()
     db.refresh(room)
+    logger.info("POST /rooms created room_id=%s name=%s", room.id, room.name)
     return RoomOut.from_room(room)
 
 
