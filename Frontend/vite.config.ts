@@ -16,6 +16,7 @@ export default defineConfig({
       '/api': {
         target: API_TARGET.replace(/\/$/, ''),
         changeOrigin: true,
+        ws: true, // WebSocket для /api/rooms/{id}/chat и /api/rooms/{id}/graph
       },
     },
   },

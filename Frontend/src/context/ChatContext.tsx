@@ -128,27 +128,30 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       if (!activeChat) return
       if (msg.type === 'message' && msg.payload) {
         const p = msg.payload as {
-          id?: string
+          id?: string | number
           text?: string
           sender?: 'user' | 'agent' | 'system'
           agentId?: string | null
           timestamp?: string
         }
-        if (p.id != null && p.text != null && p.timestamp != null) {
+        const id = p.id != null ? String(p.id) : null
+        const text = p.text ?? ''
+        const timestamp = p.timestamp ?? new Date().toISOString()
+        if (id) {
           const newItem: FeedItem = {
             type: 'message',
             data: {
-              id: p.id,
+              id,
               chatId: activeChat.id,
-              characterId: p.agentId ?? '',
-              content: p.text,
-              timestamp: p.timestamp,
+              characterId: p.agentId != null ? String(p.agentId) : '',
+              content: text,
+              timestamp,
               isRead: true,
               sender: p.sender ?? 'agent',
             },
           }
           setFeed((prev) => {
-            const exists = prev.some((x) => x.type === 'message' && x.data.id === p.id)
+            const exists = prev.some((x) => x.type === 'message' && String(x.data.id) === id)
             if (exists) return prev
             return [...prev, newItem].sort(sortFeed)
           })
@@ -195,6 +198,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     roomId: activeChat?.id ?? null,
     onMessage: handleStreamMessage,
     enabled: !!activeChat,
+    onReconnect: (roomId) => loadMessages(roomId),
   })
 
   const selectChat = useCallback((chat: Chat | null) => {
