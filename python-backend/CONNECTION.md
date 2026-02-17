@@ -81,9 +81,12 @@ Authorization: Bearer <token>
 
 1. **При открытии чата:** подключиться к `ws://localhost:8000/api/rooms/{roomId}/chat?token=<token>`
 2. **Загрузить историю:** `GET /api/rooms/{roomId}/messages` или `GET /api/rooms/{roomId}/feed`
-3. **Отправить сообщение:** `POST /api/rooms/{roomId}/agents/{agentId}/messages` с `{ "text": "Привет", "sender": "user" }`
+3. **Отправить сообщение в общий чат комнаты:**  
+   `POST /api/rooms/{roomId}/messages` с `{ "text": "Привет", "sender": "user" }`  
+   Ответят все агенты комнаты.
 
-Если в комнате несколько агентов — укажите `agentId` того, кому адресовано сообщение (например, первого из `GET /api/rooms/{roomId}/agents`).
+   **Личная переписка с агентом:**  
+   `POST /api/rooms/{roomId}/agents/{agentId}/messages` — сообщение конкретному агенту.
 
 ---
 
@@ -126,4 +129,15 @@ const token = (await fetch(`${API}/api/auth/login`, {
 const rooms = await fetch(`${API}/api/rooms`, {
   headers: { 'Authorization': `Bearer ${token}` }
 }).then(r => r.json());
+
+// Отправить сообщение в общий чат комнаты (ответят все агенты)
+const roomId = rooms.rooms[0]?.id;
+await fetch(`${API}/api/rooms/${roomId}/messages`, {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${token}`
+  },
+  body: JSON.stringify({ text: 'Привет!', sender: 'user' })
+});
 ```

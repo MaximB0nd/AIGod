@@ -145,6 +145,59 @@ def test_get_messages_lazy_loading(
 
 @patch("app.routers.room_agents.broadcast_chat_message")
 @patch("app.routers.room_agents.get_agent_response")
+def test_send_room_message_triggers_all_agents(
+    mock_get_response,
+    mock_broadcast,
+    client: TestClient,
+    auth_headers: dict,
+    room_with_agent,
+    db_session,
+):
+    """POST /messages (общий чат) сохраняет сообщение с agent_id=None и триггерит ответ каждого агента."""
+    from app.models.message import Message
+
+    room, agent = room_with_agent
+    mock_get_response.return_value = "Привет от агента!"
+
+    response = client.post(
+        f"/api/rooms/{room.id}/messages",
+        json={"text": "Привет, все!", "sender": "user"},
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["text"] == "Привет, все!"
+    assert data["agentId"] is None
+
+    user_msgs = db_session.query(Message).filter(
+        Message.room_id == room.id,
+        Message.sender == "user",
+        Message.agent_id.is_(None),
+    ).all()
+    assert len(user_msgs) == 1
+    assert user_msgs[0].text == "Привет, все!"
+
+    assert mock_broadcast.call_count >= 1
+
+
+def test_send_room_message_400_if_no_agents(
+    client: TestClient,
+    auth_headers: dict,
+    test_room,
+):
+    """POST /messages возвращает 400 если в комнате нет агентов."""
+    response = client.post(
+        f"/api/rooms/{test_room.id}/messages",
+        json={"text": "Привет", "sender": "user"},
+        headers=auth_headers,
+    )
+    assert response.status_code == 400
+    assert "агентов" in response.json()["detail"].lower()
+
+
+@patch("app.routers.room_agents.broadcast_chat_message")
+@patch("app.routers.room_agents.get_agent_response")
 def test_send_message_triggers_websocket_broadcast(
     mock_get_response,
     mock_broadcast,

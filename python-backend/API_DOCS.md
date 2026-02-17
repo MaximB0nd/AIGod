@@ -591,8 +591,41 @@ Authorization: Bearer <token>
 
 ## Сообщения
 
+### POST /api/rooms/{roomId}/messages
+**Отправить сообщение в общий чат комнаты.** Рекомендуемый эндпоинт для multi-agent чата. **Требует Bearer token.**
+
+Сообщение видно всем агентам. Ответят **все** агенты в комнате (режим `single`) или оркестрация (`circular`, `narrator`, `full_context`). Ответы приходят через WebSocket.
+
+**Тело (JSON):**
+```json
+{
+  "text": "Привет!",
+  "sender": "user"
+}
+```
+
+**Ответ:**
+```json
+{
+  "id": "1",
+  "text": "Привет!",
+  "sender": "user",
+  "timestamp": "2025-02-16T12:00:00",
+  "agentId": null,
+  "agentResponse": null
+}
+```
+
+`agentId: null` — сообщение в комнату, не конкретному агенту. Ответы агентов — отдельные сообщения в WebSocket.
+
+Ошибка 400 — если в комнате нет агентов.
+
+---
+
 ### POST /api/rooms/{roomId}/agents/{agentId}/messages
-Отправить сообщение агенту. **Требует Bearer token.**
+Отправить сообщение **конкретному** агенту (личная переписка 1-на-1). **Требует Bearer token.**
+
+Используй для приватного чата с выбранным агентом, debug, тестирования.
 
 Сообщения рассылаются в WebSocket `/api/rooms/{roomId}/chat`. Клиент должен быть подключён к WebSocket до отправки сообщения — иначе broadcast не дойдёт. При открытии чата также вызови `GET /api/rooms/{roomId}/messages` для загрузки истории.
 
@@ -851,6 +884,7 @@ Authorization: Bearer <token>
 | POST | /api/rooms/{roomId}/events/broadcast | Bearer |
 | GET | /api/rooms/{roomId}/feed | Bearer |
 | GET | /api/rooms/{roomId}/messages | Bearer |
+| POST | /api/rooms/{roomId}/messages | Bearer |
 | POST | /api/rooms/{roomId}/agents/{agentId}/messages | Bearer |
 | PATCH | /api/rooms/{roomId}/speed | Bearer |
 | GET | /api/default-agents | — |

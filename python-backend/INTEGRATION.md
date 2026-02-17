@@ -42,10 +42,17 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 ## LLM и сообщения
 
-### POST `/api/rooms/{roomId}/agents/{agentId}/messages`
+### POST `/api/rooms/{roomId}/messages` — общий чат комнаты (рекомендуется)
+- Сообщение пользователя в комнату (все агенты видят)
+- В режиме `single`: триггер ответа от **каждого** агента (все отвечают)
+- В режиме оркестрации (`circular`, `narrator`, `full_context`): сообщение идёт в очередь оркестрации
+- Ответы рассылаются в WebSocket `/api/rooms/{roomId}/chat`
+
+### POST `/api/rooms/{roomId}/agents/{agentId}/messages` — личная переписка
+- Сообщение **конкретному** агенту (чат 1-на-1)
 - Вызывается **YandexGPT** через `YandexAgentClient`
 - Ответ сохраняется в БД, возвращается в `agentResponse`
-- Сообщение и ответ рассылаются в WebSocket `/api/rooms/{roomId}/chat`
+- Сообщение и ответ рассылаются в WebSocket
 - **WebSocket должен быть подключён до отправки** — иначе broadcast не доставит сообщения клиенту
 
 ---

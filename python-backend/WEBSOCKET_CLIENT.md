@@ -78,7 +78,7 @@ ws://localhost:8000/api/rooms/1/chat?token=YOUR_JWT_TOKEN
 | id            | string | ID сообщения                              |
 | text          | string | Текст сообщения                           |
 | sender        | string | `"user"` \| `"agent"` \| `"system"`      |
-| agentId       | string?| ID агента (если сообщение к/от агента)    |
+| agentId       | string?| ID агента (если сообщение к/от агента). `null` — сообщение пользователя в общий чат комнаты (`POST /messages`) |
 | timestamp     | string | ISO 8601                                  |
 | agentResponse | string?| Ответ агента (если уже сгенерирован). В режиме оркестрации (`circular` и т.д.) ответы агентов приходят отдельными сообщениями с `sender: "agent"` |
 

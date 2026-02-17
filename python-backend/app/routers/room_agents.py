@@ -519,6 +519,146 @@ def broadcast_event(
     )
 
 
+async def _generate_agent_reply_async(
+    room_id: int,
+    agent_id: int,
+    agent_name: str,
+    user_text: str,
+    user_sender: str,
+) -> None:
+    """
+    Фоновая задача: сгенерировать ответ агента на сообщение в комнату.
+    Вызывается для каждого агента при POST /messages (общий чат комнаты).
+    """
+    db = SessionLocal()
+    try:
+        room = db.query(Room).filter(Room.id == room_id).first()
+        if not room:
+            return
+        agent = _agent_in_room(room, agent_id)
+        if not agent:
+            return
+        session_id = f"room_{room_id}_agent_{agent_id}"
+        loop = asyncio.get_event_loop()
+        agent_response = await loop.run_in_executor(
+            None,
+            lambda: get_agent_response(agent, session_id, user_text, room=room),
+        )
+        agent_msg = Message(
+            room_id=room_id,
+            agent_id=agent_id,
+            text=agent_response or "",
+            sender=agent_name,
+        )
+        db.add(agent_msg)
+        db.commit()
+        db.refresh(agent_msg)
+        payload = {
+            "id": str(agent_msg.id),
+            "text": agent_msg.text,
+            "sender": agent_name,
+            "agentId": str(agent_id),
+            "timestamp": agent_msg.created_at.isoformat() if agent_msg.created_at else "",
+            "agentResponse": None,
+        }
+        await broadcast_chat_message(room_id, payload)
+        # Обновление памяти/эмоций — sync, запускаем в executor чтобы не блокировать
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(
+            None,
+            lambda: _update_room_services_on_message(
+                room_id, list(room.agents), user_text, user_sender, agent_msg.text, agent_name
+            ),
+        )
+    except Exception as e:
+        logger.exception("Ошибка _generate_agent_reply room_id=%s agent_id=%s: %s", room_id, agent_id, e)
+    finally:
+        db.close()
+
+
+@router.post("/messages", response_model=MessageOut)
+async def send_room_message(
+    data: MessageCreateIn,
+    room: Room = Depends(get_room_for_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Отправить сообщение в общий чат комнаты.
+
+    Сообщение видно всем агентам. Ответят все агенты в комнате (в режиме single)
+    или оркестрация (circular, narrator, full_context).
+
+    Для личной переписки с конкретным агентом используйте
+    POST /api/rooms/{roomId}/agents/{agentId}/messages.
+    """
+    if not room.agents:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Добавьте агентов в комнату перед отправкой сообщений",
+        )
+
+    # Сохраняем сообщение пользователя в комнату (agent_id=None — не конкретному агенту)
+    msg = Message(
+        room_id=room.id,
+        agent_id=None,
+        text=data.text,
+        sender=data.sender,
+    )
+    db.add(msg)
+    db.commit()
+    db.refresh(msg)
+    logger.info("Сообщение комнаты сохранено msg_id=%s room_id=%s", msg.id, room.id)
+
+    payload_user = {
+        "id": str(msg.id),
+        "text": msg.text,
+        "sender": msg.sender,
+        "agentId": None,
+        "timestamp": msg.created_at.isoformat() if msg.created_at else "",
+        "agentResponse": None,
+    }
+    await broadcast_chat_message(room.id, payload_user)
+
+    orchestration_type = getattr(room, "orchestration_type", None) or "single"
+
+    if orchestration_type != "single":
+        client = await registry.get_or_start(room)
+        if client:
+            logger.info("Оркестрация: отправка в очередь room_id=%s", room.id)
+            await client.send_user_message(data.text)
+            return MessageOut(
+                id=str(msg.id),
+                text=msg.text,
+                sender=msg.sender,
+                timestamp=msg.created_at.isoformat() if msg.created_at else "",
+                agentId=None,
+                agentResponse=None,
+            )
+        logger.warning("Оркестрация не создана, fallback: триггер всех агентов")
+
+    # Режим single: триггерим ответ от каждого агента
+    for agent in room.agents:
+        asyncio.create_task(
+            _generate_agent_reply_async(
+                room.id,
+                agent.id,
+                agent.name,
+                data.text,
+                data.sender,
+            )
+        )
+    logger.info("Триггер ответов от %d агентов room_id=%s", len(room.agents), room.id)
+
+    return MessageOut(
+        id=str(msg.id),
+        text=msg.text,
+        sender=msg.sender,
+        timestamp=msg.created_at.isoformat() if msg.created_at else "",
+        agentId=None,
+        agentResponse=None,
+    )
+
+
 @router.get("/messages", response_model=MessagesListOut)
 def get_messages(
     after_id: int | None = Query(None, description="Загрузить сообщения старше этого id"),
