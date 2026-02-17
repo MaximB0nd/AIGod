@@ -37,11 +37,12 @@ def create_room(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Создать комнату."""
+    """Создать комнату. Клиент выбирает orchestration_type при создании."""
     room = Room(
         name=data.name,
         description=data.description,
         speed=1.0,
+        orchestration_type=data.orchestration_type,
         user_id=current_user.id,
     )
     db.add(room)
@@ -71,6 +72,8 @@ def update_room(
         room.description = data.description
     if data.speed is not None:
         room.speed = data.speed
+    if data.orchestration_type is not None:
+        room.orchestration_type = data.orchestration_type
     room.updated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(room)

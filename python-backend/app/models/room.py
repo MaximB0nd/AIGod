@@ -22,6 +22,7 @@ class Room(Base):
     name = Column(String, nullable=False)
     description = Column(String, nullable=True)
     speed = Column(Float, default=1.0)  # 1.0 = нормальная скорость
+    orchestration_type = Column(String, default="single", nullable=False)  # single | circular | narrator | full_context
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

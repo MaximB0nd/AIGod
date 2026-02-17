@@ -1,7 +1,9 @@
 from app.services.yandex_client.yandex_agent_client import YandexAgentClient
 from app.services.yandex_client.agent_factory import AgentFactory
 
+
 class ChatService:
+    """Сервис для общения с одним агентом через YandexGPT (режим single)."""
 
     def __init__(self):
         self.agent_client = YandexAgentClient()

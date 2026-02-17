@@ -37,7 +37,19 @@ YANDEX_CLOUD_API_KEY=Api-Key your_key
 2. Настроить `.env` с ключами Yandex
 3. POST `/api/rooms/{roomId}/agents/{agentId}/messages` с `{"text": "...", "sender": "user"}` возвращает ответ агента
 
-## Оркестрация
+## Тип оркестрации комнаты
+
+При создании комнаты клиент передаёт `orchestration_type`:
+- `single` (по умолчанию) — пользователь общается с одним агентом
+- `circular` — агенты общаются по кругу
+- `narrator` — агент-рассказчик
+- `full_context` — полный контекст для всех
+
+Тип сохраняется в Room и передаётся в ChatService при каждом сообщении → YandexAgentClient добавляет контекст в промпт (например, для circular: «ты участвуешь в циркулярном разговоре»).
+
+**API:** POST `/api/rooms` — `{"name": "...", "orchestration_type": "circular"}`, PATCH `/api/rooms/{id}` — `{"orchestration_type": "narrator"}`
+
+## Оркестрация (полный цикл)
 
 Модуль `app/services/agents_orchestration/` подключён к YandexGPT через `YandexAgentAdapter` (см. `examples/usage.py`). Для фоновой циркулярной оркестрации агентов в комнате можно использовать `OrchestrationClient` + `CircularStrategy` — это отдельный слой поверх текущих эндпоинтов.
 

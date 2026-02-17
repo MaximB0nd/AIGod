@@ -33,6 +33,7 @@ from app.schemas.api import (
     SuccessOut,
 )
 from app.services.llm_service import get_agent_response
+from app.services.orchestration_background import registry
 from app.utils.mood import get_agent_mood
 from app.ws import broadcast_chat_event, broadcast_chat_message, broadcast_graph_edge
 
@@ -434,7 +435,7 @@ def update_speed(
 
 
 @router.post("/agents/{agent_id}/messages", response_model=MessageOut)
-def send_message(
+async def send_message(
     agent_id: int,
     data: MessageCreateIn,
     background_tasks: BackgroundTasks,
@@ -445,6 +446,8 @@ def send_message(
     agent = _agent_in_room(room, agent_id)
     if not agent:
         raise HTTPException(status_code=404, detail="Агент не найден")
+
+    orchestration_type = getattr(room, "orchestration_type", None) or "single"
 
     # Сохраняем сообщение пользователя
     msg = Message(
@@ -457,11 +460,34 @@ def send_message(
     db.commit()
     db.refresh(msg)
 
-    # Генерируем ответ агента через YandexGPT
+    if orchestration_type != "single":
+        # Режим оркестрации: запускаем в фоне, кладём сообщение в очередь
+        client = await registry.get_or_start(room)
+        if client:
+            await client.send_user_message(data.text)
+            payload = {
+                "id": str(msg.id),
+                "text": msg.text,
+                "sender": msg.sender,
+                "agentId": str(agent_id),
+                "timestamp": msg.created_at.isoformat() if msg.created_at else "",
+                "agentResponse": None,
+            }
+            background_tasks.add_task(broadcast_chat_message, room.id, payload)
+            return MessageOut(
+                id=str(msg.id),
+                text=msg.text,
+                sender=msg.sender,
+                timestamp=msg.created_at.isoformat() if msg.created_at else "",
+                agentId=str(agent_id),
+                agentResponse=None,
+            )
+        # fallback: если оркестрация не создалась (нет Yandex и т.п.), идём в single
+
+    # Режим single — ChatService
     session_id = f"room_{room.id}_agent_{agent_id}"
     agent_response = get_agent_response(agent, session_id, data.text)
 
-    # Сохраняем ответ агента в БД
     agent_msg = Message(
         room_id=room.id,
         agent_id=agent_id,
@@ -472,7 +498,6 @@ def send_message(
     db.commit()
     db.refresh(agent_msg)
 
-    # Рассылка в WebSocket чата (с ответом агента)
     payload = {
         "id": str(msg.id),
         "text": msg.text,

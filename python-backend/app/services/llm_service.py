@@ -16,13 +16,9 @@ class AgentPromptAdapter:
         self.prompt = agent.personality or ""
 
 
-def get_agent_response(
-    agent,
-    session_id: str,
-    text: str,
-) -> str:
+def get_agent_response(agent, session_id: str, text: str) -> str:
     """
-    Получить ответ агента от LLM.
+    Получить ответ агента от LLM (режим single — один агент).
 
     Args:
         agent: SQLAlchemy Agent (personality = промпт персонажа)

@@ -4,7 +4,9 @@ from fastapi import FastAPI
 from sqlalchemy.orm import Session
 
 from app.data.default_agents_data import agents_data
+from app.services.orchestration_background import registry
 from app.database.sqlite_setup import Base, SessionLocal, engine, get_db
+from sqlalchemy import inspect
 from app.models.agent import Agent
 from app.routers.agents import router as agents_router
 from app.routers.auth import router as auth_router
@@ -14,9 +16,30 @@ from app.routers.system import router as system_router
 from app.routers.websocket import router as websocket_router
 
 
+def migrate_add_orchestration_type():
+    """Добавить колонку orchestration_type в rooms, если её нет."""
+    from sqlalchemy import text
+    try:
+        insp = inspect(engine)
+        if "rooms" not in insp.get_table_names():
+            return
+        cols = [c["name"] for c in insp.get_columns("rooms")]
+        if "orchestration_type" in cols:
+            return
+        with engine.connect() as conn:
+            conn.execute(text("ALTER TABLE rooms ADD COLUMN orchestration_type VARCHAR DEFAULT 'single'"))
+            conn.commit()
+    except Exception as e:
+        print(f"Migration orchestration_type: {e}")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print("→ Запуск lifespan (startup)")
+    try:
+        migrate_add_orchestration_type()
+    except Exception as e:
+        print(f"Ошибка миграции: {e}")
     try:
         with SessionLocal() as db:
             init_default_agents(db)
@@ -24,6 +47,10 @@ async def lifespan(app: FastAPI):
         print(f"Ошибка в lifespan: {e}")
     yield
     print("→ Завершение lifespan (shutdown)")
+    try:
+        await registry.stop_all()
+    except Exception as e:
+        print(f"Ошибка при остановке оркестраций: {e}")
 
 
 app = FastAPI(

@@ -26,15 +26,20 @@ class AuthOut(BaseModel):
 
 
 # --- Rooms ---
+OrchestrationTypeLiteral = Literal["single", "circular", "narrator", "full_context"]
+
+
 class RoomCreateIn(BaseModel):
     name: str = Field(..., min_length=1)
     description: Optional[str] = None
+    orchestration_type: OrchestrationTypeLiteral = Field("single", description="Паттерн взаимодействия агентов")
 
 
 class RoomUpdateIn(BaseModel):
     name: Optional[str] = Field(None, min_length=1)
     description: Optional[str] = None
     speed: Optional[float] = None
+    orchestration_type: Optional[OrchestrationTypeLiteral] = None
 
 
 class RoomOut(BaseModel):
@@ -42,6 +47,7 @@ class RoomOut(BaseModel):
     name: str
     description: Optional[str] = None
     speed: float = 1.0
+    orchestration_type: str = "single"
     createdAt: Optional[str] = None
     updatedAt: Optional[str] = None
     agentCount: Optional[int] = None
@@ -53,6 +59,7 @@ class RoomOut(BaseModel):
             name=room.name,
             description=room.description,
             speed=float(room.speed or 1.0),
+            orchestration_type=getattr(room, "orchestration_type", None) or "single",
             createdAt=room.created_at.isoformat() if room.created_at else None,
             updatedAt=room.updated_at.isoformat() if getattr(room, "updated_at", None) else None,
             agentCount=agent_count if agent_count is not None else (len(room.agents) if hasattr(room, "agents") else None),

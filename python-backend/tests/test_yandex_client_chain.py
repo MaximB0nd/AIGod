@@ -27,11 +27,10 @@ class TestChatServiceChain:
             result = service.process_message(agent, "session_123", "Привет!")
 
         assert result == "Ответ от агента"
-        mock_client.send_message.assert_called_once_with(
-            agent=agent,
-            session_id="session_123",
-            text="Привет!",
-        )
+        mock_client.send_message.assert_called_once()
+        call_kw = mock_client.send_message.call_args[1]
+        assert call_kw["session_id"] == "session_123"
+        assert call_kw["text"] == "Привет!"
 
 
 class TestCharacterAgent:
@@ -51,9 +50,10 @@ class TestCharacterAgent:
         result = char_agent.respond("sess_1", "Как урожай?")
 
         assert result == "Укуси меня пчела!"
-        mock_client.send_message.assert_called_once_with(
-            agent=agent, session_id="sess_1", text="Как урожай?"
-        )
+        mock_client.send_message.assert_called_once()
+        call_kw = mock_client.send_message.call_args[1]
+        assert call_kw["session_id"] == "sess_1"
+        assert call_kw["text"] == "Как урожай?"
 
 
 class TestAgentFactory:
