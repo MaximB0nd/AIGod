@@ -1,92 +1,93 @@
 # Интеграция: эндпоинты + модули YandexGPT/оркестрации
 
-**Для фронтенда:** основной справочник API — `API_DOCS.md`, WebSocket — `WEBSOCKET_CLIENT.md`.
+**Для фронтенда:**
+- **API:** `API_DOCS.md` — полный справочник REST
+- **WebSocket:** `WEBSOCKET_CLIENT.md`
+- **Подключение:** `CONNECTION.md` — быстрый старт
 
-## Сделано
+---
 
-### 1. Связка LLM с POST `/api/rooms/{roomId}/agents/{agentId}/messages`
+## Подключение и конфигурация
 
-- При отправке сообщения агенту теперь вызывается **YandexGPT** через `YandexAgentClient`
-- Ответ агента сохраняется в БД и возвращается в `agentResponse`
+### Переменные окружения (`.env`)
+
+| Переменная | Описание | По умолчанию |
+|------------|----------|--------------|
+| `YANDEX_CLOUD_FOLDER` | folder_id в Yandex Cloud | — |
+| `YANDEX_CLOUD_API_KEY` | API key (можно с префиксом `Api-Key `) | — |
+| `SQLITE_DB_PATH` | Путь к SQLite БД | `aigod.db` |
+| `SECRET_KEY` | JWT секрет | (встроенный) |
+
+### Запуск
+
+```bash
+pip install -r requirements.txt
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+---
+
+## Логика агентов
+
+### Таблица `agents` и `default_agents`
+- **agents** — созданные пользователями агенты. Изначально пуста.
+- **default_agents** — шаблоны (Копатыч, Гермиона и т.д.). Заполняется при первом старте из `app/data/default_agents_data.py`.
+
+### Создание агента по шаблону
+1. `GET /api/default-agents` — список шаблонов
+2. `GET /api/default-agents/{id}` — данные для формы (name, character, avatar)
+3. `POST /api/rooms/{roomId}/agents` с `{name, character, avatar}` — создаёт агента в комнате
+
+---
+
+## LLM и сообщения
+
+### POST `/api/rooms/{roomId}/agents/{agentId}/messages`
+- Вызывается **YandexGPT** через `YandexAgentClient`
+- Ответ сохраняется в БД, возвращается в `agentResponse`
 - Сообщение и ответ рассылаются в WebSocket `/api/rooms/{roomId}/chat`
 
-### 2. Модули другого разработчика
+---
 
-- **Импорты**: `yandex_client` переведён на `app.services.yandex_client.*`
-- **ChromaDB**: сделан опциональным (память отключается при ошибке инициализации)
-- **Адаптер**: `Agent.personality` (БД) → `prompt` для YandexAgentClient
+## Оркестрация
 
-### 3. Конфигурация
-
-Добавлены переменные в `app/config.py`:
-- `YANDEX_CLOUD_FOLDER` — folder_id в Yandex Cloud
-- `YANDEX_CLOUD_API_KEY` — API key
-
-В `.env` задать:
-```
-YANDEX_CLOUD_FOLDER=your_folder_id
-YANDEX_CLOUD_API_KEY=Api-Key your_key
-```
-
-### 4. Зависимости
-
-- В `requirements.txt` добавлен `yandex-ai-studio-sdk`
-- ChromaDB (опционально) — для памяти агентов
-
-## Использование
-
-1. `pip install -r requirements.txt` (включая yandex-ai-studio-sdk)
-2. Настроить `.env` с ключами Yandex
-3. POST `/api/rooms/{roomId}/agents/{agentId}/messages` с `{"text": "...", "sender": "user"}` возвращает ответ агента
-
-## Тип оркестрации комнаты
-
-При создании комнаты клиент передаёт `orchestration_type`:
-- `single` (по умолчанию) — пользователь общается с одним агентом
+### Тип комнаты `orchestration_type`
+- `single` — пользователь общается с одним агентом
 - `circular` — агенты общаются по кругу
 - `narrator` — агент-рассказчик
 - `full_context` — полный контекст для всех
 
-Тип сохраняется в Room и передаётся в ChatService при каждом сообщении → YandexAgentClient добавляет контекст в промпт (например, для circular: «ты участвуешь в циркулярном разговоре»).
+**Создание:** `POST /api/rooms` с `{"name": "...", "orchestration_type": "circular"}`  
+**PATCH /api/rooms/{id}** — только `description` и `speed` (orchestration_type не меняется).
 
-**API:** POST `/api/rooms` — `{"name": "...", "orchestration_type": "circular"}`, PATCH `/api/rooms/{id}` — `{"orchestration_type": "narrator"}`
+### Ручное управление
+- `POST /api/rooms/{roomId}/orchestration/start` — запуск `OrchestrationClient`
+- `POST /api/rooms/{roomId}/orchestration/stop` — остановка
 
-## Оркестрация (полный цикл)
+При POST message в комнату с `orchestration_type != "single"` сообщение уходит в очередь оркестрации, ответы приходят через WebSocket.
 
-Модуль `app/services/agents_orchestration/` подключён к YandexGPT через `YandexAgentAdapter` (см. `examples/usage.py`). Для фоновой циркулярной оркестрации агентов в комнате используется `OrchestrationClient` + `CircularStrategy` — при POST message в комнату с `orchestration_type != "single"` сообщение передаётся в очередь оркестрации, ответы приходят via WebSocket.
+---
 
-## Интеграция сервисов (relationship, memory, emotions)
-
-### Обогащение промптов
-- **llm_service.get_agent_response** — при вызове с `room` добавляет контекст отношений (relationship_model) в характер агента
-- **YandexAgentAdapter** (оркестрация) — обёрнут в `_RelationshipEnhancingAdapter`, дополняет промпт отношениями перед вызовом LLM
+## Сервисы (relationship, memory, emotions)
 
 ### Эндпоинты
-- **GET /api/rooms/{id}/relationship-model** — граф отношений, типы (friendly/hostile), статистика
-- **GET /api/rooms/{id}/emotional-state** — эмоциональное состояние агентов комнаты
-- **GET /api/rooms/{id}/context-memory** — сводка контекста разговора (модуль context_memory)
+- `GET /api/rooms/{id}/relationship-model` — граф отношений
+- `GET /api/rooms/{id}/emotional-state` — эмоции агентов
+- `GET /api/rooms/{id}/context-memory` — сводка диалога
 
-### Обновление при сообщениях
-После POST message (режим single) в фоне вызываются `get_memory_integration` и `get_emotional_integration` — сообщения пользователя и ответа агента сохраняются в память; эмоциональный менеджер обновляет состояния.
+### Обогащение промптов
+- LLM и оркестрация получают контекст отношений из `relationship_model`
 
-### Зависимости
-- **relationship_model** — без внешних зависимостей, синхронизируется с БД (таблица relationships)
-- **emotional_intelligence** — работает без LLM-анализатора (ручное состояние)
-- **context_memory** — без ChromaDB использует только short-term (in-memory)
+---
 
 ## Тесты
 
 ```bash
-pytest tests/ -v
+SQLITE_DB_PATH=:memory: pytest tests/ -v
 ```
 
 | Файл | Что проверяет |
 |------|---------------|
-| `tests/test_llm_service.py` | AgentPromptAdapter, fallback при отсутствии ключей, вызов ChatService (мок) |
-| `tests/test_message_endpoint_integration.py` | POST messages → LLM → сохранение в БД → broadcast в WebSocket |
-| `tests/test_yandex_client_chain.py` | ChatService → CharacterAgent → YandexAgentClient (мок) |
-| `tests/test_orchestration.py` | OrchestrationClient, CircularStrategy, ConversationContext, связь с async chat_service |
-
-Тесты используют `SQLITE_DB_PATH=:memory:` и моки для Yandex API — реальные запросы не выполняются.
-
-**Оркестрация в API:** При POST message в комнату с `orchestration_type != "single"` запрос уходит в фоновую очередь оркестрации (`app/services/orchestration_background.py`). Ответы агентов приходят через WebSocket `/api/rooms/{roomId}/chat`. Документация API — см. `API_DOCS.md`.
+| `tests/test_llm_service.py` | AgentPromptAdapter, fallback без ключей |
+| `tests/test_message_endpoint_integration.py` | POST messages → LLM → broadcast |
+| `tests/test_orchestration.py` | OrchestrationClient, CircularStrategy |

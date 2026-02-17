@@ -1,13 +1,29 @@
 # AIgod API — документация (v1.0.0)
 
-**Базовый URL:** `http://localhost:8000`  
-**Swagger UI:** `/docs`  
-**ReDoc:** `/redoc`  
+## Подключение
 
-**Авторизация:** все эндпоинты кроме `register`, `login` и `GET /api/agents` требуют заголовок:
+| Параметр       | Значение                        |
+|----------------|----------------------------------|
+| **Базовый URL**| `http://localhost:8000`         |
+| **Swagger UI** | `http://localhost:8000/docs`    |
+| **ReDoc**      | `http://localhost:8000/redoc`   |
+
+### Без авторизации
+- `POST /api/auth/register`, `POST /api/auth/login`
+- `GET /api/agents`, `GET /api/default-agents`, `GET /api/default-agents/{id}`
+- `GET /api/prompts/*`
+
+### С авторизацией
+Остальные эндпоинты требуют заголовок:
 ```
 Authorization: Bearer <token>
 ```
+Токен получают из `POST /api/auth/login` (поле `token`).
+
+### Последовательность подключения
+1. `POST /api/auth/register` или `POST /api/auth/login` → получить `token`
+2. Далее все запросы: `Authorization: Bearer <token>`
+3. WebSocket: `ws://localhost:8000/api/rooms/{roomId}/chat?token=<token>`
 
 ---
 
@@ -842,3 +858,10 @@ Authorization: Bearer <token>
 | POST | /api/prompts/build | — |
 | WS | /api/rooms/{roomId}/chat | token в query |
 | WS | /api/rooms/{roomId}/graph | token в query |
+
+---
+
+## Дополнительно
+
+- **CONNECTION.md** — пошаговое подключение для фронтенда
+- **WEBSOCKET_CLIENT.md** — детали WebSocket (коды закрытия, примеры кода)
