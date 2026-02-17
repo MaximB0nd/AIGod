@@ -1,51 +1,41 @@
 /**
- * API агентов (в контексте комнаты)
- * @see docs/BACKEND_API_REQUIREMENTS.md
+ * API агентов и отношений
+ * @see API_DOCS.md v1.0.0
  */
 
 import { apiFetch } from './client'
-import type { Agent, AgentSummary, CreateAgentRequest, Memory, Plan } from '@/types/agent'
+import type { Agent, Memory, Plan, RelationshipsResponse } from '@/types/agent'
 
-export interface AgentsListResponse {
+export type { RelationshipsResponse }
+
+export interface AgentSummary {
+  id: string
+  name: string
+  avatar?: string
+  mood?: { mood: string; level: number; icon?: string; color?: string }
+}
+
+export interface AgentsResponse {
   agents: AgentSummary[]
 }
 
-export interface MemoriesResponse {
-  memories: Memory[]
-  total: number
-}
-
-export interface PlansResponse {
-  plans: Plan[]
-}
-
-export interface RelationshipsResponse {
-  nodes: Array<{
-    id: string
-    name: string
-    avatar?: string
-    mood: { mood: string; level: number; color?: string }
-  }>
-  edges: Array<{ from: string; to: string; sympathyLevel: number }>
-}
-
 /**
- * GET /api/rooms/{roomId}/agents — список агентов комнаты
+ * GET /api/rooms/{roomId}/agents — все агенты комнаты
  */
 export async function fetchAgents(roomId: string): Promise<AgentSummary[]> {
-  const res = await apiFetch<AgentsListResponse>(`/api/rooms/${roomId}/agents`)
+  const res = await apiFetch<AgentsResponse>(`/api/rooms/${roomId}/agents`)
   return res.agents ?? []
 }
 
-/**
- * GET /api/rooms/{roomId}/agents/{agentId} — полная информация об агенте
- */
-export async function fetchAgent(roomId: string, agentId: string): Promise<Agent> {
-  return apiFetch<Agent>(`/api/rooms/${roomId}/agents/${agentId}`)
+export interface CreateAgentRequest {
+  name: string
+  character?: string
+  avatar?: string
+  agentId?: number
 }
 
 /**
- * POST /api/rooms/{roomId}/agents — создать агента
+ * POST /api/rooms/{roomId}/agents — создать или добавить агента
  */
 export async function createAgent(
   roomId: string,
@@ -58,10 +48,27 @@ export async function createAgent(
 }
 
 /**
- * DELETE /api/rooms/{roomId}/agents/{agentId} — удалить агента
+ * DELETE /api/rooms/{roomId}/agents/{agentId} — удалить агента из комнаты
  */
-export async function deleteAgent(roomId: string, agentId: string): Promise<void> {
-  await apiFetch(`/api/rooms/${roomId}/agents/${agentId}`, { method: 'DELETE' })
+export async function deleteAgent(
+  roomId: string,
+  agentId: string
+): Promise<void> {
+  return apiFetch(`/api/rooms/${roomId}/agents/${agentId}`, {
+    method: 'DELETE',
+  })
+}
+
+/**
+ * GET /api/rooms/{roomId}/agents/{agentId} — полная информация по агенту
+ */
+export async function fetchAgent(roomId: string, agentId: string): Promise<Agent> {
+  return apiFetch<Agent>(`/api/rooms/${roomId}/agents/${agentId}`)
+}
+
+export interface MemoriesResponse {
+  memories: Memory[]
+  total: number
 }
 
 /**
@@ -72,20 +79,15 @@ export async function fetchAgentMemories(
   agentId: string,
   params?: { limit?: number; offset?: number }
 ): Promise<MemoriesResponse> {
-  const q = new URLSearchParams()
-  if (params?.limit != null) q.set('limit', String(params.limit))
-  if (params?.offset != null) q.set('offset', String(params.offset))
-  const query = q.toString()
-  return apiFetch<MemoriesResponse>(
-    `/api/rooms/${roomId}/agents/${agentId}/memories${query ? `?${query}` : ''}`
-  )
+  const search = new URLSearchParams()
+  if (params?.limit != null) search.set('limit', String(params.limit))
+  if (params?.offset != null) search.set('offset', String(params.offset))
+  const q = search.toString() ? `?${search}` : ''
+  return apiFetch<MemoriesResponse>(`/api/rooms/${roomId}/agents/${agentId}/memories${q}`)
 }
 
-/**
- * GET /api/rooms/{roomId}/relationships — граф отношений
- */
-export async function fetchRelationships(roomId: string): Promise<RelationshipsResponse> {
-  return apiFetch<RelationshipsResponse>(`/api/rooms/${roomId}/relationships`)
+export interface PlansResponse {
+  plans: Plan[]
 }
 
 /**
@@ -94,9 +96,15 @@ export async function fetchRelationships(roomId: string): Promise<RelationshipsR
 export async function fetchAgentPlans(
   roomId: string,
   agentId: string
-): Promise<Plan[]> {
-  const res = await apiFetch<PlansResponse>(
-    `/api/rooms/${roomId}/agents/${agentId}/plans`
-  )
-  return res.plans ?? []
+): Promise<PlansResponse> {
+  return apiFetch<PlansResponse>(`/api/rooms/${roomId}/agents/${agentId}/plans`)
+}
+
+/**
+ * GET /api/rooms/{roomId}/relationships — граф отношений
+ */
+export async function fetchRelationships(
+  roomId: string
+): Promise<RelationshipsResponse> {
+  return apiFetch<RelationshipsResponse>(`/api/rooms/${roomId}/relationships`)
 }

@@ -1,15 +1,14 @@
 /**
- * Типы для комнат
- * Нейросети общаются друг с другом, пользователь — рассказчик событий
+ * Типы для чата (Room → Chat, Agent → Character)
+ * @see API_DOCS.md v1.0.0
  */
 
-export interface Character {
+export interface Chat {
   id: string
-  name: string
+  title: string
+  characterIds: string[]
   avatar?: string
-  description?: string
-  /** Промпт/личность нейросети */
-  systemPrompt?: string
+  createdAt: string
 }
 
 export interface Message {
@@ -18,47 +17,26 @@ export interface Message {
   characterId: string
   content: string
   timestamp: string
-  isRead?: boolean
-  /** Вложения: файлы, изображения */
-  attachments?: MessageAttachment[]
-  /** Реакции на сообщение */
-  reactions?: MessageReaction[]
+  isRead: boolean
+  sender?: 'user' | 'agent' | 'system'
 }
 
-export interface MessageAttachment {
+export interface Character {
   id: string
-  type: 'file' | 'image'
   name: string
-  size?: number
-  url?: string
-}
-
-export interface MessageReaction {
-  emoji: string
-  characterId: string
-}
-
-export interface Chat {
-  id: string
-  title: string
   avatar?: string
-  characterIds: string[]
-  lastMessage?: Pick<Message, 'content' | 'timestamp' | 'characterId'>
-  unreadCount?: number
-  createdAt: string
+  description?: string
 }
 
-/** Событие от рассказчика — адресуется всем или выбранным агентам */
 export interface Event {
   id: string
   chatId: string
-  type: 'user_event'
+  type: string
   description: string
-  agentIds: string[] // пусто = всем агентам
+  agentIds: string[]
   timestamp: string
 }
 
-/** Элемент ленты: сообщение агента или событие рассказчика */
 export type FeedItem =
-  | { type: 'message'; data: Message }
+  | { type: 'message'; data: Message & { sender?: 'user' | 'agent' | 'system' } }
   | { type: 'event'; data: Event }

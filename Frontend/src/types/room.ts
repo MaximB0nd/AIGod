@@ -8,8 +8,8 @@ export interface Room {
   name: string
   description?: string
   speed?: number
-  /** true = эмуляция включена, false = выключена */
-  emulationRunning?: boolean
+  /** Режим оркестрации: single | circular | narrator | full_context */
+  orchestration_type?: string
   createdAt: string
   /** Количество агентов в комнате (приходит в GET /api/rooms/{roomId}) */
   agentCount?: number

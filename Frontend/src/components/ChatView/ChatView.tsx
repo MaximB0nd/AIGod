@@ -7,7 +7,7 @@ import { useChat } from '@/context/ChatContext'
 import { MessageBubble } from './MessageBubble'
 import { EventBubble } from './EventBubble'
 import { ChatHeader } from './ChatHeader'
-import { NarratorInput } from './NarratorInput'
+import { UnifiedInput } from './UnifiedInput'
 import { GroupInfoModal } from '../GroupInfoModal/GroupInfoModal'
 import styles from './ChatView.module.css'
 
@@ -20,8 +20,19 @@ interface ChatViewProps {
 }
 
 export function ChatView({ onAddCharacter, onToggleSidebar, sidebarCollapsed, onToggleRightPanel, rightPanelCollapsed }: ChatViewProps) {
-  const { activeChat, feed, characters, selectChat, isMessagesLoading } = useChat()
+  const {
+    activeChat,
+    feed,
+    characters,
+    selectChat,
+    isMessagesLoading,
+    hasMoreMessages,
+    isLoadMoreLoading,
+    loadMoreMessages,
+  } = useChat()
   const scrollRef = useRef<HTMLDivElement>(null)
+  const loadMoreSentinelRef = useRef<HTMLDivElement>(null)
+  const prevFeedLengthRef = useRef(0)
   const [showGroupInfo, setShowGroupInfo] = useState(false)
 
   const handleCloseChat = useCallback(() => {
@@ -35,6 +46,41 @@ export function ChatView({ onAddCharacter, onToggleSidebar, sidebarCollapsed, on
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
   }, [feed])
+
+  const scrollHeightBeforeLoadRef = useRef(0)
+  useEffect(() => {
+    if (isLoadMoreLoading) {
+      scrollHeightBeforeLoadRef.current = scrollRef.current?.scrollHeight ?? 0
+    }
+  }, [isLoadMoreLoading])
+
+  useEffect(() => {
+    if (!isLoadMoreLoading && prevFeedLengthRef.current > 0 && feed.length > prevFeedLengthRef.current) {
+      const container = scrollRef.current
+      if (container && scrollHeightBeforeLoadRef.current > 0) {
+        const delta = container.scrollHeight - scrollHeightBeforeLoadRef.current
+        if (delta > 0) container.scrollTop += delta
+      }
+    }
+    prevFeedLengthRef.current = feed.length
+  }, [feed.length, isLoadMoreLoading])
+
+  useEffect(() => {
+    const sentinel = loadMoreSentinelRef.current
+    const container = scrollRef.current
+    if (!sentinel || !container || !hasMoreMessages || isLoadMoreLoading) return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          loadMoreMessages()
+        }
+      },
+      { root: container, rootMargin: '100px', threshold: 0 }
+    )
+    observer.observe(sentinel)
+    return () => observer.disconnect()
+  }, [hasMoreMessages, isLoadMoreLoading, loadMoreMessages])
 
   if (!activeChat) {
     return (
@@ -93,6 +139,15 @@ export function ChatView({ onAddCharacter, onToggleSidebar, sidebarCollapsed, on
       />
       <div className={styles.messages} ref={scrollRef}>
         <div className={styles.messagesInner}>
+          {hasMoreMessages && (
+            <div ref={loadMoreSentinelRef} className={styles.loadMoreSentinel}>
+              {isLoadMoreLoading ? (
+                <span className={styles.loadingSpinner} />
+              ) : (
+                <span className={styles.loadMoreHint}>Потяните вверх для загрузки</span>
+              )}
+            </div>
+          )}
           {isMessagesLoading && (
             <div className={styles.loading}>
               <span className={styles.loadingSpinner} />
@@ -105,8 +160,8 @@ export function ChatView({ onAddCharacter, onToggleSidebar, sidebarCollapsed, on
                 <MessageBubble
                   key={item.data.id}
                   message={item.data}
-                  character={getCharacter(item.data.characterId)}
-                  isOutgoing={false}
+                  character={item.data.sender === 'user' ? undefined : getCharacter(item.data.characterId)}
+                  isOutgoing={item.data.sender === 'user'}
                 />
               ) : (
                 <EventBubble key={item.data.id} event={item.data} characters={characters} />
@@ -114,7 +169,7 @@ export function ChatView({ onAddCharacter, onToggleSidebar, sidebarCollapsed, on
             )}
         </div>
       </div>
-      <NarratorInput chat={activeChat} />
+      <UnifiedInput chat={activeChat} />
       <GroupInfoModal
         isOpen={showGroupInfo}
         onClose={() => setShowGroupInfo(false)}

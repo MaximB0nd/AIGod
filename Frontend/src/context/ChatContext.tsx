@@ -8,11 +8,10 @@ import {
   useCallback,
   useContext,
   useEffect,
-  useRef,
   useState,
   type ReactNode,
 } from 'react'
-import type { Chat, Message, Character, Event, FeedItem } from '@/types/chat'
+import type { Chat, Message, Character, FeedItem } from '@/types/chat'
 import type { CharacterPreset } from '@/constants/characterPresets'
 import * as chatApi from '@/api/chat'
 import { useRoomStream, type StreamMessage } from '@/hooks/useRoomStream'
@@ -26,13 +25,20 @@ interface ChatContextValue {
   feed: FeedItem[]
   isLoading: boolean
   isMessagesLoading: boolean
+  /** Есть ли ещё сообщения для подгрузки при скролле вверх */
+  hasMoreMessages: boolean
+  /** Идёт ли подгрузка старых сообщений */
+  isLoadMoreLoading: boolean
   selectChat: (chat: Chat | null) => void
   createChat: (data: { title: string; description?: string }) => Promise<Chat>
   addCharacterToChat: (chatId: string, presetId: string) => Promise<void>
   createAgentToChat: (chatId: string, data: { name: string; character: string; avatar?: string }) => Promise<void>
   removeCharacterFromChat: (chatId: string, agentId: string) => Promise<void>
   sendMessage: (chatId: string, agentId: string, content: string) => Promise<void>
+  sendMessageToRoom: (chatId: string, content: string) => Promise<void>
   sendEvent: (chatId: string, description: string, agentIds?: string[]) => Promise<void>
+  /** Подгрузить более старые сообщения при скролле вверх */
+  loadMoreMessages: () => Promise<void>
   deleteChat: (chatId: string) => Promise<void>
   refreshChats: () => Promise<void>
   /** Обновить чаты в фоне без индикатора загрузки */
@@ -53,8 +59,10 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const [activeChat, setActiveChat] = useState<Chat | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
   const [feed, setFeed] = useState<FeedItem[]>([])
+  const [hasMoreMessages, setHasMoreMessages] = useState(true)
   const [isLoading, setIsLoading] = useState(true)
   const [isMessagesLoading, setIsMessagesLoading] = useState(false)
+  const [isLoadMoreLoading, setIsLoadMoreLoading] = useState(false)
 
   const characterPresets = chatApi.getCharacterPresets()
 
@@ -82,17 +90,20 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
   const loadMessages = useCallback(async (chatId: string) => {
     setIsMessagesLoading(true)
+    setHasMoreMessages(true)
     try {
       const { messages: msgs, feed: feedItems, characters: agents } =
         await chatApi.fetchMessagesFeedAndCharacters(chatId)
       setMessages(msgs)
       setFeed(feedItems.sort(sortFeed))
       setCharacters(agents)
+      setHasMoreMessages(true)
     } catch (err) {
       console.error('Failed to load messages:', err)
       setMessages([])
       setFeed([])
       setCharacters([])
+      setHasMoreMessages(false)
     } finally {
       setIsMessagesLoading(false)
     }
@@ -115,8 +126,65 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const handleStreamMessage = useCallback(
     (msg: StreamMessage) => {
       if (!activeChat) return
-      // Источник истины — сервер: при любом обновлении перезапрашиваем данные
-      if (msg.type === 'event' || msg.type === 'message' || msg.type === 'agent_update') {
+      if (msg.type === 'message' && msg.payload) {
+        const p = msg.payload as {
+          id?: string
+          text?: string
+          sender?: 'user' | 'agent' | 'system'
+          agentId?: string | null
+          timestamp?: string
+        }
+        if (p.id != null && p.text != null && p.timestamp != null) {
+          const newItem: FeedItem = {
+            type: 'message',
+            data: {
+              id: p.id,
+              chatId: activeChat.id,
+              characterId: p.agentId ?? '',
+              content: p.text,
+              timestamp: p.timestamp,
+              isRead: true,
+              sender: p.sender ?? 'agent',
+            },
+          }
+          setFeed((prev) => {
+            const exists = prev.some((x) => x.type === 'message' && x.data.id === p.id)
+            if (exists) return prev
+            return [...prev, newItem].sort(sortFeed)
+          })
+          return
+        }
+      }
+      if (msg.type === 'event' && msg.payload) {
+        const p = msg.payload as {
+          id?: string
+          eventType?: string
+          agentIds?: string[]
+          description?: string
+          timestamp?: string
+        }
+        if (p.id != null && p.timestamp != null) {
+          const newItem: FeedItem = {
+            type: 'event',
+            data: {
+              id: p.id,
+              chatId: activeChat.id,
+              type: p.eventType ?? 'user_event',
+              description: p.description ?? '',
+              agentIds: p.agentIds ?? [],
+              timestamp: p.timestamp,
+            },
+          }
+          setFeed((prev) => {
+            const exists = prev.some((x) => x.type === 'event' && x.data.id === p.id)
+            if (exists) return prev
+            return [...prev, newItem].sort(sortFeed)
+          })
+          return
+        }
+      }
+      // Fallback: полный reload при неполных данных
+      if (msg.type === 'event' || msg.type === 'message') {
         loadMessages(activeChat.id)
       }
     },
@@ -181,15 +249,100 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     [activeChat?.id, loadMessages]
   )
 
-  const sendMessage = useCallback(async (chatId: string, agentId: string, content: string) => {
-    await chatApi.sendMessage(chatId, agentId, content)
-    await loadMessages(chatId)
-  }, [loadMessages])
+  const sendMessage = useCallback(
+    async (chatId: string, agentId: string, content: string) => {
+      const msg = await chatApi.sendMessage(chatId, agentId, content)
+      setFeed((prev) => {
+        const newItem: FeedItem = {
+          type: 'message',
+          data: {
+            id: msg.id,
+            chatId,
+            characterId: agentId,
+            content: msg.content,
+            timestamp: msg.timestamp,
+            isRead: false,
+            sender: 'user',
+          },
+        }
+        const exists = prev.some((x) => x.type === 'message' && x.data.id === msg.id)
+        if (exists) return prev
+        return [...prev, newItem].sort(sortFeed)
+      })
+    },
+    []
+  )
 
-  const sendEvent = useCallback(async (chatId: string, description: string, agentIds: string[] = []) => {
-    await chatApi.sendEvent(chatId, description, agentIds)
-    await loadMessages(chatId)
-  }, [loadMessages])
+  const sendMessageToRoom = useCallback(
+    async (chatId: string, content: string) => {
+      const msg = await chatApi.sendMessageToRoom(chatId, content)
+      setFeed((prev) => {
+        const newItem: FeedItem = {
+          type: 'message',
+          data: {
+            id: msg.id,
+            chatId,
+            characterId: '',
+            content: msg.content,
+            timestamp: msg.timestamp,
+            isRead: false,
+            sender: 'user',
+          },
+        }
+        const exists = prev.some((x) => x.type === 'message' && x.data.id === msg.id)
+        if (exists) return prev
+        return [...prev, newItem].sort(sortFeed)
+      })
+    },
+    []
+  )
+
+  const sendEvent = useCallback(
+    async (chatId: string, description: string, agentIds: string[] = []) => {
+      const evt = await chatApi.sendEvent(chatId, description, agentIds)
+      setFeed((prev) => {
+        const newItem: FeedItem = {
+          type: 'event',
+          data: {
+            id: evt.id,
+            chatId,
+            type: evt.type,
+            description: evt.description,
+            agentIds: evt.agentIds,
+            timestamp: evt.timestamp,
+          },
+        }
+        const exists = prev.some((x) => x.type === 'event' && x.data.id === evt.id)
+        if (exists) return prev
+        return [...prev, newItem].sort(sortFeed)
+      })
+    },
+    []
+  )
+
+  const loadMoreMessages = useCallback(async () => {
+    if (!activeChat || isLoadMoreLoading || !hasMoreMessages) return
+    const oldestMessage = feed
+      .filter((x): x is FeedItem & { type: 'message' } => x.type === 'message')
+      .sort((a, b) => new Date(a.data.timestamp).getTime() - new Date(b.data.timestamp).getTime())[0]
+    if (!oldestMessage) return
+
+    setIsLoadMoreLoading(true)
+    try {
+      const { items, hasMore } = await chatApi.fetchOlderMessages(
+        activeChat.id,
+        oldestMessage.data.id,
+        20
+      )
+      setHasMoreMessages(hasMore)
+      setFeed((prev) => [...items, ...prev].sort(sortFeed))
+    } catch (err) {
+      console.error('Failed to load more messages:', err)
+      setHasMoreMessages(false)
+    } finally {
+      setIsLoadMoreLoading(false)
+    }
+  }, [activeChat, feed, isLoadMoreLoading, hasMoreMessages])
 
   const deleteChat = useCallback(async (chatId: string) => {
     await chatApi.deleteChat(chatId)
@@ -207,13 +360,17 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     feed,
     isLoading,
     isMessagesLoading,
+    hasMoreMessages,
+    isLoadMoreLoading,
     selectChat,
     createChat,
     addCharacterToChat,
     createAgentToChat,
     removeCharacterFromChat,
     sendMessage,
+    sendMessageToRoom,
     sendEvent,
+    loadMoreMessages,
     deleteChat,
     refreshChats: loadChats,
     refreshChatsSilent,

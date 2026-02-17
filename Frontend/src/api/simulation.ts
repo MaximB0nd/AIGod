@@ -1,28 +1,28 @@
 /**
- * API симуляции (старт/стоп эмуляции, скорость времени)
- * @see docs/BACKEND_API_REQUIREMENTS.md
+ * API симуляции (оркестрация, скорость времени)
+ * @see API_DOCS.md v1.0.0
  */
 
 import { apiFetch } from './client'
 
 /**
- * POST /api/rooms/{roomId}/emulation/start — включить эмуляцию
+ * POST /api/rooms/{roomId}/orchestration/start — запустить оркестрацию
  */
-export async function startEmulation(roomId: string): Promise<{ running?: boolean } | void> {
-  return apiFetch<{ running?: boolean } | void>(`/api/rooms/${roomId}/emulation/start`, {
-    method: 'POST',
-    body: JSON.stringify({}),
-  })
+export async function startOrchestration(roomId: string): Promise<{ status?: string; roomId?: number; orchestration_type?: string }> {
+  return apiFetch<{ status?: string; roomId?: number; orchestration_type?: string }>(
+    `/api/rooms/${roomId}/orchestration/start`,
+    { method: 'POST' }
+  )
 }
 
 /**
- * POST /api/rooms/{roomId}/emulation/stop — выключить эмуляцию
+ * POST /api/rooms/{roomId}/orchestration/stop — остановить оркестрацию
  */
-export async function stopEmulation(roomId: string): Promise<{ running?: boolean } | void> {
-  return apiFetch<{ running?: boolean } | void>(`/api/rooms/${roomId}/emulation/stop`, {
-    method: 'POST',
-    body: JSON.stringify({}),
-  })
+export async function stopOrchestration(roomId: string): Promise<{ status?: string; roomId?: number }> {
+  return apiFetch<{ status?: string; roomId?: number }>(
+    `/api/rooms/${roomId}/orchestration/stop`,
+    { method: 'POST' }
+  )
 }
 
 /**

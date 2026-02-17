@@ -1,16 +1,15 @@
 /**
- * WebSocket чата комнаты
- * WS /api/rooms/{roomId}/chat — сообщения и события в реальном времени
+ * WebSocket графа отношений комнаты
+ * WS /api/rooms/{roomId}/graph — обновления рёбер в реальном времени
  * @see WEBSOCKET_CLIENT.md v1.0.0
  */
 
 import { useEffect, useRef } from 'react'
 import { getApiBase, getToken } from '@/api/client'
 
-export type StreamMessage =
+export type GraphMessage =
   | { type: 'connected'; payload?: { roomId?: string; message?: string } }
-  | { type: 'message'; payload?: Record<string, unknown> }
-  | { type: 'event'; payload?: Record<string, unknown> }
+  | { type: 'edge_update'; payload?: { roomId?: string; from?: string; to?: string; sympathyLevel?: number } }
   | { type: 'pong'; payload?: Record<string, unknown> }
   | { type: 'error'; payload?: { message?: string } }
 
@@ -21,13 +20,13 @@ function getWsBase(): string {
   return base.replace(/^http/, 'ws')
 }
 
-export function useRoomStream({
+export function useRoomGraph({
   roomId,
   onMessage,
   enabled = true,
 }: {
   roomId: string | null
-  onMessage: (msg: StreamMessage) => void
+  onMessage: (msg: GraphMessage) => void
   enabled?: boolean
 }) {
   const wsRef = useRef<WebSocket | null>(null)
@@ -41,7 +40,7 @@ export function useRoomStream({
     const token = getToken()
     if (!token) return
 
-    const wsUrl = `${getWsBase()}/api/rooms/${roomId}/chat?token=${encodeURIComponent(token)}`
+    const wsUrl = `${getWsBase()}/api/rooms/${roomId}/graph?token=${encodeURIComponent(token)}`
     const ws = new WebSocket(wsUrl)
     wsRef.current = ws
 
@@ -55,7 +54,7 @@ export function useRoomStream({
 
     ws.onmessage = (event) => {
       try {
-        const msg = JSON.parse(event.data) as StreamMessage
+        const msg = JSON.parse(event.data) as GraphMessage
         onMessageRef.current(msg)
       } catch {
         // ignore parse errors
@@ -63,8 +62,8 @@ export function useRoomStream({
     }
 
     ws.onclose = (event) => {
-      if (event.code === 4001) console.error('WebSocket: не авторизован')
-      if (event.code === 4003) console.error('WebSocket: нет доступа к комнате')
+      if (event.code === 4001) console.error('WebSocket graph: не авторизован')
+      if (event.code === 4003) console.error('WebSocket graph: нет доступа к комнате')
     }
 
     return () => {

@@ -9,6 +9,7 @@ import type { Room } from '@/types/room'
 export interface CreateRoomRequest {
   name: string
   description?: string
+  orchestration_type?: 'single' | 'circular' | 'narrator' | 'full_context'
 }
 
 export interface UpdateRoomRequest {
@@ -29,6 +30,9 @@ export async function createRoom(data: CreateRoomRequest): Promise<Room> {
   const body: Record<string, string> = { name: data.name }
   if (data.description != null && data.description.trim() !== '') {
     body.description = data.description.trim()
+  }
+  if (data.orchestration_type != null) {
+    body.orchestration_type = data.orchestration_type
   }
   return apiFetch<Room>('/api/rooms', {
     method: 'POST',

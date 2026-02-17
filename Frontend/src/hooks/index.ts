@@ -1,4 +1,5 @@
-export { useRoomStream } from './useRoomStream'
-export { useAgentMemories } from './useAgentMemories'
 export { useRelationships } from './useRelationships'
+export { useAgentMemories } from './useAgentMemories'
 export { useAgentPlans } from './useAgentPlans'
+export { useRoomStream, type StreamMessage } from './useRoomStream'
+export { useRoomGraph, type GraphMessage } from './useRoomGraph'

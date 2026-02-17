@@ -1,8 +1,9 @@
 /**
- * Типы для агентов (по BACKEND_API_REQUIREMENTS.md)
+ * Типы для агентов (API /api/rooms/{roomId}/agents, relationships)
+ * @see API_DOCS.md v1.0.0
  */
 
-export interface Mood {
+export interface AgentMood {
   mood: string
   level: number
   icon?: string
@@ -13,7 +14,7 @@ export interface AgentSummary {
   id: string
   name: string
   avatar?: string
-  mood: Mood
+  mood?: AgentMood
 }
 
 export interface Memory {
@@ -30,13 +31,22 @@ export interface Plan {
 }
 
 export interface Agent extends AgentSummary {
-  character: string
+  character?: string
   keyMemories?: Memory[]
   plans?: Plan[]
 }
 
-export interface CreateAgentRequest {
-  name: string
-  character: string
-  avatar?: string
+export interface RelationshipsResponse {
+  nodes: Array<{
+    id: string
+    name: string
+    avatar?: string
+    mood?: { mood?: string; level?: number; color?: string }
+  }>
+  edges: Array<{
+    from: string
+    to: string
+    agentName?: string
+    sympathyLevel: number
+  }>
 }

@@ -81,6 +81,7 @@ export async function fetchFeed(chatId: string): Promise<FeedItem[]> {
           content: i.text ?? '',
           timestamp: i.timestamp,
           isRead: true,
+          sender: (i as { sender?: 'user' | 'agent' | 'system' }).sender ?? 'agent',
         },
       }
     }
@@ -89,7 +90,7 @@ export async function fetchFeed(chatId: string): Promise<FeedItem[]> {
       data: {
         id: i.id,
         chatId,
-        type: 'user_event' as const,
+        type: ((i as { eventType?: string }).eventType ?? 'user_event') as string,
         description: (i as { description?: string }).description ?? '',
         agentIds: (i as { agentIds?: string[] }).agentIds ?? [],
         timestamp: i.timestamp,
@@ -158,6 +159,7 @@ export async function fetchMessagesFeedAndCharacters(chatId: string): Promise<{
           content: i.text,
           timestamp: i.timestamp,
           isRead: true,
+          sender: (i as { sender?: 'user' | 'agent' | 'system' }).sender ?? 'agent',
         },
       }
     }
@@ -166,7 +168,7 @@ export async function fetchMessagesFeedAndCharacters(chatId: string): Promise<{
       data: {
         id: i.id,
         chatId,
-        type: 'user_event' as const,
+        type: ((i as { eventType?: string }).eventType ?? 'user_event') as string,
         description: (i as { description?: string }).description ?? '',
         agentIds: (i as { agentIds?: string[] }).agentIds ?? [],
         timestamp: i.timestamp,
@@ -251,11 +253,66 @@ export async function sendMessage(
   return {
     id: res.id,
     chatId,
-    characterId: agentId,
+    characterId: agentId ?? '',
     content: res.text,
     timestamp: res.timestamp,
     isRead: false,
   }
+}
+
+/**
+ * Отправить сообщение в общий чат комнаты (всем агентам)
+ * POST /api/rooms/{roomId}/messages
+ */
+export async function sendMessageToRoom(
+  chatId: string,
+  content: string
+): Promise<Message> {
+  const res = await messagesApi.sendMessageToRoom(chatId, {
+    text: content,
+    sender: 'user',
+  })
+  return {
+    id: res.id,
+    chatId,
+    characterId: '',
+    content: res.text,
+    timestamp: res.timestamp,
+    isRead: false,
+  }
+}
+
+/**
+ * Загрузить более старые сообщения (для ленивой загрузки при скролле вверх)
+ * GET /api/rooms/{roomId}/messages?after_id=X
+ */
+export async function fetchOlderMessages(
+  chatId: string,
+  afterId: string,
+  limit = 20
+): Promise<{ items: FeedItem[]; hasMore: boolean }> {
+  const numId = parseInt(afterId, 10)
+  if (Number.isNaN(numId)) return { items: [], hasMore: false }
+
+  const res = await messagesApi.fetchMessages(chatId, {
+    after_id: numId,
+    limit,
+  })
+
+  const items: FeedItem[] = (res.messages ?? []).map((m) => ({
+    type: 'message' as const,
+    data: {
+      id: m.id,
+      chatId,
+      characterId: m.agentId ?? '',
+      content: m.text,
+      timestamp: m.timestamp,
+      isRead: true,
+      sender: m.sender ?? 'agent',
+    },
+  }))
+
+  return { items, hasMore: res.hasMore ?? false }
 }
 
 export async function deleteChat(chatId: string): Promise<void> {

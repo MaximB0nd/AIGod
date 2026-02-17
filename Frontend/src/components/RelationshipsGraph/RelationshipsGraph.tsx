@@ -1,15 +1,18 @@
 /**
  * Граф взаимоотношений агентов в комнате
- * Использует GET /api/rooms/{roomId}/relationships
+ * GET /api/rooms/{roomId}/relationships
+ * WS /api/rooms/{roomId}/graph — обновления рёбер
+ * @see API_DOCS.md, WEBSOCKET_CLIENT.md v1.0.0
  */
 
 import { useRef, useEffect, useState, useMemo, useCallback } from 'react'
 import ForceGraph2D from 'react-force-graph-2d'
 import type { ForceGraphMethods } from 'react-force-graph-2d'
-import { useRelationships } from '@/hooks/useRelationships'
+import { useRelationships, useRoomGraph } from '@/hooks'
 import type { RelationshipsResponse } from '@/api/agents'
-import { startEmulation, stopEmulation, updateRoomSpeed } from '@/api/simulation'
+import { startOrchestration, stopOrchestration, updateRoomSpeed } from '@/api/simulation'
 import { fetchRoom } from '@/api/rooms'
+import type { Room } from '@/types/room'
 import styles from './RelationshipsGraph.module.css'
 
 interface RelationshipsGraphProps {
@@ -17,10 +20,10 @@ interface RelationshipsGraphProps {
   /** Вызывать reload при открытии панели */
   onPanelOpen?: boolean
   /**
-   * Опциональный callback при старте/остановке эмуляции.
-   * По умолчанию: POST /api/rooms/{roomId}/emulation/start и .../stop.
+   * Опциональный callback при старте/остановке оркестрации.
+   * По умолчанию: POST /api/rooms/{roomId}/orchestration/start и .../stop.
    */
-  onEmulationToggle?: (roomId: string, running: boolean) => Promise<void>
+  onOrchestrationToggle?: (roomId: string, running: boolean) => Promise<void>
 }
 
 function sympathyToColor(level: number): string {
@@ -82,28 +85,41 @@ const BOUND_PADDING = 60
 const GRAPH_HEIGHT = 280
 const SPEED_VALUES = [1, 2, 3] as const
 
-export function RelationshipsGraph({ roomId, onPanelOpen, onEmulationToggle }: RelationshipsGraphProps) {
+export function RelationshipsGraph({ roomId, onPanelOpen, onOrchestrationToggle }: RelationshipsGraphProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const graphRef = useRef<ForceGraphMethods | undefined>(undefined)
   const [dimensions, setDimensions] = useState({ width: 320, height: GRAPH_HEIGHT })
-  const [emulationRunning, setEmulationRunning] = useState(true)
-  const [emulationLoading, setEmulationLoading] = useState(false)
+  const [orchestrationRunning, setOrchestrationRunning] = useState(false)
+  const [orchestrationLoading, setOrchestrationLoading] = useState(false)
   const [speed, setSpeed] = useState<1 | 2 | 3>(1)
   const [speedLoading, setSpeedLoading] = useState(false)
+  const [room, setRoom] = useState<Room | null>(null)
   const { data, isLoading, error, reload } = useRelationships(roomId)
+
+  const canOrchestrate = room?.orchestration_type && room.orchestration_type !== 'single'
+
+  const handleEdgeUpdate = useCallback(
+    (msg: { type: string; payload?: { from?: string; to?: string; sympathyLevel?: number } }) => {
+      if (msg.type !== 'edge_update' || !msg.payload?.from || !msg.payload?.to) return
+      reload()
+    },
+    [reload]
+  )
+
+  useRoomGraph({
+    roomId,
+    onMessage: handleEdgeUpdate,
+    enabled: !!roomId && !!onPanelOpen,
+  })
 
   useEffect(() => {
     if (!roomId) return
-    fetchRoom(roomId).then((room) => {
-      if (room?.emulationRunning != null) {
-        setEmulationRunning(room.emulationRunning)
-      } else if (room?.speed != null) {
-        setEmulationRunning(room.speed > 0)
+    fetchRoom(roomId).then((r) => {
+      setRoom(r ?? null)
+      if (r?.speed != null && SPEED_VALUES.includes(r.speed as 1 | 2 | 3)) {
+        setSpeed(r.speed as 1 | 2 | 3)
       }
-      if (room?.speed != null && SPEED_VALUES.includes(room.speed as 1 | 2 | 3)) {
-        setSpeed(room.speed as 1 | 2 | 3)
-      }
-    }).catch(() => {})
+    }).catch(() => setRoom(null))
   }, [roomId])
 
   const prevOpenRef = useRef(false)
@@ -155,25 +171,26 @@ export function RelationshipsGraph({ roomId, onPanelOpen, onEmulationToggle }: R
     ;(node as { y: number }).y = Math.max(yMin, Math.min(yMax, y))
   }, [])
 
-  const handleEmulationToggle = useCallback(async () => {
-    if (!roomId || emulationLoading) return
-    const nextRunning = !emulationRunning
-    setEmulationLoading(true)
+  const handleOrchestrationToggle = useCallback(async () => {
+    if (!roomId || orchestrationLoading) return
+    if (!canOrchestrate && !orchestrationRunning) return
+    const nextRunning = !orchestrationRunning
+    setOrchestrationLoading(true)
     try {
-      if (onEmulationToggle) {
-        await onEmulationToggle(roomId, nextRunning)
+      if (onOrchestrationToggle) {
+        await onOrchestrationToggle(roomId, nextRunning)
       } else if (nextRunning) {
-        await startEmulation(roomId)
+        await startOrchestration(roomId)
       } else {
-        await stopEmulation(roomId)
+        await stopOrchestration(roomId)
       }
-      setEmulationRunning(nextRunning)
+      setOrchestrationRunning(nextRunning)
     } catch {
       // Ошибка — состояние не меняем
     } finally {
-      setEmulationLoading(false)
+      setOrchestrationLoading(false)
     }
-  }, [roomId, emulationRunning, emulationLoading, onEmulationToggle])
+  }, [roomId, orchestrationRunning, orchestrationLoading, canOrchestrate, onOrchestrationToggle])
 
   const handleSpeedChange = useCallback(
     async (newSpeed: 1 | 2 | 3) => {
@@ -309,16 +326,18 @@ export function RelationshipsGraph({ roomId, onPanelOpen, onEmulationToggle }: R
         />
       </div>
       <p className={styles.hint}>Цвет связи: красный — негатив, зелёный — позитив</p>
-      <button
-        type="button"
-        className={styles.emulationBtn}
-        onClick={handleEmulationToggle}
-        disabled={emulationLoading}
-        title={emulationRunning ? 'Остановить эмуляцию' : 'Запустить эмуляцию'}
-        aria-label={emulationRunning ? 'Остановить эмуляцию' : 'Запустить эмуляцию'}
-      >
-        {emulationLoading ? '…' : emulationRunning ? '⏹ Остановить' : '▶ Старт'}
-      </button>
+      {canOrchestrate && (
+        <button
+          type="button"
+          className={styles.emulationBtn}
+          onClick={handleOrchestrationToggle}
+          disabled={orchestrationLoading}
+          title={orchestrationRunning ? 'Остановить оркестрацию' : 'Запустить оркестрацию'}
+          aria-label={orchestrationRunning ? 'Остановить оркестрацию' : 'Запустить оркестрацию'}
+        >
+          {orchestrationLoading ? '…' : orchestrationRunning ? '⏹ Остановить' : '▶ Старт'}
+        </button>
+      )}
       <div className={styles.speedBlock}>
         <label className={styles.speedLabel} htmlFor="speed-slider">
           Скорость

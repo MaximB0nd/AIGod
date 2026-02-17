@@ -1,25 +1,7 @@
 /**
  * Типы данных для AIgod
- * Соответствуют контракту API (docs/API_CONTRACT.md)
+ * Соответствуют контракту API (API_DOCS.md v1.0.0)
  */
-
-export interface Memory {
-  id: string
-  content: string
-  importance: number
-  timestamp: string
-}
-
-export interface Agent {
-  id: string
-  name: string
-  avatar?: string
-  personality: string
-  mood: 'happy' | 'neutral' | 'sad' | 'angry' | 'excited' | 'anxious'
-  memories: Memory[]
-  current_goals: string[]
-  created_at: string
-}
 
 export interface Relationship {
   source_id: string
@@ -52,3 +34,5 @@ export interface SimulationState {
 
 export * from './chat'
 export * from './auth'
+export * from './agent'
+export * from './room'

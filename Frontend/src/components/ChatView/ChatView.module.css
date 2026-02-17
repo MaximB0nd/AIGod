@@ -199,6 +199,20 @@
   margin: 0;
 }
 
+.loadMoreSentinel {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 40px;
+  padding: 8px;
+  color: var(--tg-muted);
+  font-size: 0.75rem;
+}
+
+.loadMoreHint {
+  opacity: 0.8;
+}
+
 .loadingSpinner {
   width: 28px;
   height: 28px;

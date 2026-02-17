@@ -18,7 +18,7 @@ export function useAgentPlans(roomId: string | null, agentId: string | null) {
     setError(null)
     try {
       const res = await agentsApi.fetchAgentPlans(roomId, agentId)
-      setPlans(res)
+      setPlans(res.plans ?? [])
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Ошибка загрузки')
       setPlans([])
