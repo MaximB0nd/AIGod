@@ -24,6 +24,8 @@ from app.schemas.api import (
     EventCreateIn,
     EventOut,
     FeedOut,
+    MessageItemOut,
+    MessagesListOut,
     MemoriesListOut,
     MemoryOut,
     MessageCreateIn,
@@ -474,6 +476,43 @@ def broadcast_event(
         agentIds=event.agent_ids or [],
         description=event.description,
         timestamp=event.created_at.isoformat() if event.created_at else "",
+    )
+
+
+@router.get("/messages", response_model=MessagesListOut)
+def get_messages(
+    after_id: int | None = Query(None, description="Загрузить сообщения старше этого id"),
+    limit: int = Query(20, ge=1, le=100),
+    room: Room = Depends(get_room_for_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Сообщения комнаты для ленивой загрузки.
+
+    Если after_id указан — возвращает до limit сообщений с id < after_id (более старые).
+    Иначе — последние limit сообщений.
+    hasMore=true, если есть ещё сообщения для подгрузки.
+    """
+    q = db.query(Message).filter(Message.room_id == room.id)
+    if after_id is not None:
+        q = q.filter(Message.id < after_id)
+    q = q.order_by(Message.created_at.desc())
+    messages = q.limit(limit + 1).all()  # +1 чтобы проверить hasMore
+    has_more = len(messages) > limit
+    if has_more:
+        messages = messages[:limit]
+    return MessagesListOut(
+        messages=[
+            MessageItemOut(
+                id=str(m.id),
+                text=m.text,
+                sender=m.sender,
+                agentId=str(m.agent_id) if m.agent_id else None,
+                timestamp=m.created_at.isoformat() if m.created_at else "",
+            )
+            for m in messages
+        ],
+        hasMore=has_more,
     )
 
 

@@ -1,10 +1,10 @@
-# AIgod API — документация
+# AIgod API — документация (v1.0.0)
 
 **Базовый URL:** `http://localhost:8000`  
 **Swagger UI:** `/docs`  
 **ReDoc:** `/redoc`  
 
-**Авторизация:** все эндпоинты кроме `register` и `login` требуют заголовок:
+**Авторизация:** все эндпоинты кроме `register`, `login` и `GET /api/agents` требуют заголовок:
 ```
 Authorization: Bearer <token>
 ```
@@ -138,6 +138,7 @@ Authorization: Bearer <token>
       "name": "Моя комната",
       "description": "Описание",
       "speed": 1.0,
+      "orchestration_type": "single",
       "createdAt": "2025-02-16T12:00:00",
       "updatedAt": null,
       "agentCount": 3
@@ -155,9 +156,16 @@ Authorization: Bearer <token>
 ```json
 {
   "name": "Новая комната",
-  "description": "Опционально"
+  "description": "Опционально",
+  "orchestration_type": "single"
 }
 ```
+
+| Поле               | Тип    | По умолчанию | Описание                                                                 |
+|--------------------|--------|--------------|---------------------------------------------------------------------------|
+| name               | string | —            | Обязательно                                                              |
+| description        | string | null         | Описание комнаты                                                         |
+| orchestration_type | string | "single"     | `single` \| `circular` \| `narrator` \| `full_context` — режим агентов   |
 
 **Ответ:**
 ```json
@@ -166,6 +174,7 @@ Authorization: Bearer <token>
   "name": "Новая комната",
   "description": "Опционально",
   "speed": 1.0,
+  "orchestration_type": "single",
   "createdAt": "2025-02-16T12:00:00",
   "updatedAt": null,
   "agentCount": null
@@ -184,6 +193,7 @@ Authorization: Bearer <token>
   "name": "Моя комната",
   "description": "Описание",
   "speed": 1.0,
+  "orchestration_type": "single",
   "createdAt": "2025-02-16T12:00:00",
   "updatedAt": null,
   "agentCount": 5
@@ -193,17 +203,16 @@ Authorization: Bearer <token>
 ---
 
 ### PATCH /api/rooms/{roomId}
-Изменить комнату. **Требует Bearer token.**
+Изменить описание и/или скорость комнаты. **Требует Bearer token.**
 
 **Тело (JSON):**
 ```json
 {
-  "name": "Новое имя",
   "description": "Новое описание",
   "speed": 2.0
 }
 ```
-Все поля опциональны.
+Оба поля опциональны. `speed`: 0.1–10.0.
 
 **Ответ:** объект Room (как в GET).
 
@@ -401,6 +410,56 @@ Authorization: Bearer <token>
 
 ---
 
+### GET /api/rooms/{roomId}/relationship-model
+Расширенные данные об отношениях из модуля relationship-model (граф, типы friendly/hostile, статистика). **Требует Bearer token.**
+
+**Ответ:**
+```json
+{
+  "graph": { "nodes": [...], "edges": [...] },
+  "history": [ {"from": "A", "to": "B", "delta": 0.1, "reason": "..." } ],
+  "stats": { ... },
+  "agent_ids": { "Копатыч": "1", "Билл": "2" }
+}
+```
+
+---
+
+### GET /api/rooms/{roomId}/emotional-state
+Эмоциональное состояние агентов комнаты (модуль emotional_intelligence). **Требует Bearer token.**
+
+**Ответ:**
+```json
+{
+  "agent_ids": { "Копатыч": "1", "Билл": "2" },
+  "states": {
+    "Копатыч": { "emotion": "happy", "level": 0.8 },
+    "Билл": { "emotion": "neutral", "level": 0.5 }
+  }
+}
+```
+При недоступности сервиса: `{"agents": {}, "message": "Emotional service unavailable"}`.
+
+---
+
+### GET /api/rooms/{roomId}/context-memory
+Контекст разговора комнаты (модуль context_memory). **Требует Bearer token.**
+
+**Query-параметры:**
+| Параметр | Тип   | Описание         |
+|----------|-------|------------------|
+| query    | string| Поиск по контексту |
+
+**Ответ:**
+```json
+{
+  "summary": "Краткая сводка диалога...",
+  "stats": { "messages_count": 10 }
+}
+```
+
+---
+
 ## События
 
 ### POST /api/rooms/{roomId}/events
@@ -444,10 +503,44 @@ Authorization: Bearer <token>
 
 ---
 
+## Сообщения (ленивая загрузка)
+
+### GET /api/rooms/{roomId}/messages
+Сообщения комнаты для ленивой загрузки при скролле вверх. **Требует Bearer token.**
+
+**Query-параметры:**
+| Параметр | Тип  | По умолчанию | Описание                                      |
+|----------|------|--------------|-----------------------------------------------|
+| after_id | int  | —            | Загрузить сообщения старше этого id (id < X)  |
+| limit    | int  | 20           | Кол-во сообщений (1–100)                      |
+
+**Примеры:**
+- `GET /api/rooms/1/messages` — последние 20 сообщений
+- `GET /api/rooms/1/messages?after_id=50&limit=20` — 20 сообщений старше id=50
+
+**Ответ:**
+```json
+{
+  "messages": [
+    {
+      "id": "45",
+      "text": "Текст сообщения",
+      "sender": "user",
+      "agentId": "1",
+      "timestamp": "2025-02-16T12:00:00"
+    }
+  ],
+  "hasMore": true
+}
+```
+`hasMore: true` — есть ещё сообщения для подгрузки.
+
+---
+
 ## Лента
 
 ### GET /api/rooms/{roomId}/feed
-Лента сообщений и событий. **Требует Bearer token.**
+Лента сообщений и событий (смешанная). **Требует Bearer token.**
 
 **Query-параметры:**
 | Параметр | Тип | По умолчанию | Описание       |
@@ -504,7 +597,7 @@ Authorization: Bearer <token>
   "agentResponse": null
 }
 ```
-`agentResponse` — пока `null`, в будущем — ответ LLM.
+`agentResponse` — ответ агента от LLM. В режиме оркестрации (`circular` и т.д.) — `null`, ответы приходят отдельными сообщениями через WebSocket.
 
 ---
 
@@ -527,6 +620,73 @@ Authorization: Bearer <token>
   "speed": 2.0
 }
 ```
+
+---
+
+## Промпты (системные и шаблоны агентов)
+
+### GET /api/prompts/system
+Получить доступные системные промпты. **Без авторизации.**
+
+**Ответ:**
+```json
+{
+  "base": "Базовый системный промпт...",
+  "single": "Промпт для режима single...",
+  "orchestration": "Промпт для режима оркестрации..."
+}
+```
+
+---
+
+### GET /api/prompts/templates
+Список шаблонов для построения промптов агентов. **Без авторизации.**
+
+**Ответ:**
+```json
+{
+  "templates": ["minimal", "full", "expert", "character", "npc"],
+  "descriptions": {
+    "minimal": "Минимальный: имя и характер",
+    "full": "Развёрнутый: характер и стиль речи",
+    "expert": "Эксперт/консультант",
+    "character": "Персонаж из произведения",
+    "npc": "NPC в игре/симуляции"
+  }
+}
+```
+
+---
+
+### GET /api/prompts/templates/{name}
+Получить шаблон с плейсхолдерами. **Без авторизации.**
+
+**Ответ:** `{"name": "minimal", "template": "Ты — {{name}}. Характер: {{character}}..."}`
+
+---
+
+### POST /api/prompts/build
+Собрать промпт агента из шаблона. **Без авторизации.**
+
+**Тело (JSON):**
+```json
+{
+  "template_name": "full",
+  "name": "Копатыч",
+  "character": "Добрый медведь",
+  "speech_style": "дружелюбный",
+  "traits": null,
+  "phrases": null,
+  "universe": null,
+  "role": null,
+  "expertise": null,
+  "motivation": null,
+  "attitude": null
+}
+```
+Обязательные: `template_name`, `name`, `character`. Остальные — по необходимости шаблона.
+
+**Ответ:** `{"prompt": "собранный текст...", "template": "full"}`
 
 ---
 
@@ -604,11 +764,19 @@ Authorization: Bearer <token>
 | GET | /api/rooms/{roomId}/agents/{agentId}/plans | Bearer |
 | PATCH | /api/rooms/{roomId}/relationships | Bearer |
 | GET | /api/rooms/{roomId}/relationships | Bearer |
+| GET | /api/rooms/{roomId}/relationship-model | Bearer |
+| GET | /api/rooms/{roomId}/emotional-state | Bearer |
+| GET | /api/rooms/{roomId}/context-memory | Bearer |
 | POST | /api/rooms/{roomId}/events | Bearer |
 | POST | /api/rooms/{roomId}/events/broadcast | Bearer |
 | GET | /api/rooms/{roomId}/feed | Bearer |
+| GET | /api/rooms/{roomId}/messages | Bearer |
 | POST | /api/rooms/{roomId}/agents/{agentId}/messages | Bearer |
 | PATCH | /api/rooms/{roomId}/speed | Bearer |
 | GET | /api/agents | — |
+| GET | /api/prompts/system | — |
+| GET | /api/prompts/templates | — |
+| GET | /api/prompts/templates/{name} | — |
+| POST | /api/prompts/build | — |
 | WS | /api/rooms/{roomId}/chat | token в query |
 | WS | /api/rooms/{roomId}/graph | token в query |

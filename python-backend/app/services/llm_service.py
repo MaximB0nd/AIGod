@@ -42,10 +42,12 @@ def get_agent_response(
     try:
         from app.services.yandex_client.chat_service import ChatService
         from app.services.prompt_enhancer import enhance_prompt_with_relationship
+        from app.services.prompts import get_system_prompt
         from app.services.relationship_model_service import get_relationship_manager
 
         adapter = AgentPromptAdapter(agent)
-        base_prompt = adapter.prompt
+        system = get_system_prompt(mode="single")
+        base_prompt = f"{system}\n\n---\n\n{adapter.prompt}"
 
         # Обогащаем характер агента контекстом отношений
         if room and room.agents:

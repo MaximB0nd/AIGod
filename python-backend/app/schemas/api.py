@@ -211,6 +211,21 @@ class FeedOut(BaseModel):
     items: list[FeedEventItem | FeedMessageItem]
 
 
+class MessageItemOut(BaseModel):
+    """Элемент сообщения для списка (ленивая загрузка)."""
+    id: str
+    text: str
+    sender: str
+    agentId: Optional[str] = None
+    timestamp: str
+
+
+class MessagesListOut(BaseModel):
+    """Список сообщений с флагом hasMore."""
+    messages: list[MessageItemOut]
+    hasMore: bool = False
+
+
 # --- Speed ---
 class SpeedUpdateIn(BaseModel):
     speed: float = Field(..., ge=0.1, le=10.0)

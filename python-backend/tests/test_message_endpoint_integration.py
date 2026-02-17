@@ -97,6 +97,52 @@ def test_send_message_401_without_auth(client: TestClient, room_with_agent):
     assert response.status_code == 401
 
 
+def test_get_messages_lazy_loading(
+    client: TestClient,
+    auth_headers: dict,
+    room_with_agent,
+    db_session,
+):
+    """GET /messages с after_id возвращает более старые сообщения для ленивой загрузки."""
+    from app.models.message import Message
+
+    room, agent = room_with_agent
+    # Создаём 25 сообщений
+    for i in range(25):
+        msg = Message(
+            room_id=room.id,
+            agent_id=agent.id,
+            text=f"Сообщение {i}",
+            sender="user" if i % 2 == 0 else agent.name,
+        )
+        db_session.add(msg)
+    db_session.commit()
+
+    # Без after_id — последние 20
+    r1 = client.get(
+        f"/api/rooms/{room.id}/messages",
+        params={"limit": 20},
+        headers=auth_headers,
+    )
+    assert r1.status_code == 200
+    data1 = r1.json()
+    assert len(data1["messages"]) >= 20
+    assert "hasMore" in data1
+
+    # С after_id — следующие 20 (более старые)
+    oldest_in_batch = data1["messages"][-1]["id"]
+    r2 = client.get(
+        f"/api/rooms/{room.id}/messages",
+        params={"after_id": oldest_in_batch, "limit": 20},
+        headers=auth_headers,
+    )
+    assert r2.status_code == 200
+    data2 = r2.json()
+    assert len(data2["messages"]) <= 20
+    for m in data2["messages"]:
+        assert int(m["id"]) < int(oldest_in_batch)
+
+
 @patch("app.routers.room_agents.broadcast_chat_message")
 @patch("app.routers.room_agents.get_agent_response")
 def test_send_message_triggers_websocket_broadcast(

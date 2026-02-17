@@ -9,6 +9,7 @@ from datetime import datetime
 from typing import Optional
 
 from app.services.agents_orchestration.context import ConversationContext
+from app.services.prompts import get_system_prompt
 from app.services.yandex_client.yandex_agent_client import YandexAgentClient, Agent
 
 
@@ -24,8 +25,10 @@ class YandexAgentAdapter:
         self.session_counter = 0
 
     def register_agent(self, name: str, prompt: str) -> None:
-        """Регистрация агента."""
-        self.agents[name] = Agent(name, prompt)
+        """Регистрация агента. Промпт дополняется системными инструкциями."""
+        system = get_system_prompt(mode="orchestration")
+        full_prompt = f"{system}\n\n---\n\n{prompt}"
+        self.agents[name] = Agent(name, full_prompt)
 
     def register_agents_from_room(self, room_agents: list) -> None:
         """

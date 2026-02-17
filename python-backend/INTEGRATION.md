@@ -1,5 +1,7 @@
 # Интеграция: эндпоинты + модули YandexGPT/оркестрации
 
+**Для фронтенда:** основной справочник API — `API_DOCS.md`, WebSocket — `WEBSOCKET_CLIENT.md`.
+
 ## Сделано
 
 ### 1. Связка LLM с POST `/api/rooms/{roomId}/agents/{agentId}/messages`
@@ -87,4 +89,4 @@ pytest tests/ -v
 
 Тесты используют `SQLITE_DB_PATH=:memory:` и моки для Yandex API — реальные запросы не выполняются.
 
-**Примечание:** Эндпоинтов, использующих оркестрацию, в API пока нет — модуль работает как standalone (`run_orchestration.py`). Тесты проверяют сам модуль оркестрации и интеграцию с chat_service.
+**Оркестрация в API:** При POST message в комнату с `orchestration_type != "single"` запрос уходит в фоновую очередь оркестрации (`app/services/orchestration_background.py`). Ответы агентов приходят через WebSocket `/api/rooms/{roomId}/chat`. Документация API — см. `API_DOCS.md`.

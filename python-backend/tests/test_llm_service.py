@@ -73,10 +73,10 @@ class TestGetAgentResponse:
         assert result == "Укуси меня пчела! Привет, дружище!"
         mock_chat.process_message.assert_called_once()
         call_args = mock_chat.process_message.call_args
-        # Первый аргумент — адаптер (agent), второй — session_id, третий — text
         adapter = call_args[0][0]
         assert adapter.name == "Копатыч"
-        assert adapter.prompt == "Ты медведь-огородник."
+        assert "Ты медведь-огородник." in adapter.prompt
+        assert "персонаж" in adapter.prompt.lower() or "правила" in adapter.prompt.lower()
         assert call_args[0][1] == "room_1_agent_5"
         assert call_args[0][2] == "Как дела?"
 

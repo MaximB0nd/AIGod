@@ -10,6 +10,7 @@ from sqlalchemy import inspect
 from app.models.agent import Agent
 from app.routers.agents import router as agents_router
 from app.routers.auth import router as auth_router
+from app.routers.prompts import router as prompts_router
 from app.routers.room_agents import router as room_agents_router
 from app.routers.rooms import router as rooms_router
 from app.routers.system import router as system_router
@@ -69,6 +70,7 @@ API бэкенда для хакатона «Виртуальный мир: си
         {"name": "rooms", "description": "Комнаты"},
         {"name": "room-agents", "description": "Агенты, события, лента в комнате"},
         {"name": "agents", "description": "Каталог агентов (для добавления в комнату)"},
+        {"name": "prompts", "description": "Системные промпты и шаблоны для агентов"},
         {"name": "websocket", "description": "Поток событий в реальном времени"},
     ],
     lifespan=lifespan,
@@ -80,6 +82,7 @@ app.include_router(auth_router, prefix="/api")
 app.include_router(rooms_router, prefix="/api")
 app.include_router(room_agents_router, prefix="/api/rooms")
 app.include_router(agents_router, prefix="/api")
+app.include_router(prompts_router, prefix="/api")
 app.include_router(websocket_router, prefix="/api")
 
 # Создаём таблицы
