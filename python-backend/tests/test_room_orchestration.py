@@ -115,7 +115,7 @@ def test_send_message_uses_orchestration_for_circular_mode(
     """В режиме circular POST message кладёт сообщение в оркестрацию, не вызывает get_agent_response."""
     room, agent = room_with_agent_circular
     mock_client = MagicMock()
-    mock_client.send_user_message = AsyncMock()
+    mock_client.enqueue_user_message = AsyncMock()
     mock_registry.get_or_start = AsyncMock(return_value=mock_client)
 
     with patch("app.routers.room_agents.get_agent_response") as mock_llm:
@@ -127,6 +127,6 @@ def test_send_message_uses_orchestration_for_circular_mode(
 
     assert response.status_code == 200
     mock_registry.get_or_start.assert_called_once()
-    mock_client.send_user_message.assert_called_once_with("Обсудим тему")
+    mock_client.enqueue_user_message.assert_called_once_with(room.id, "Обсудим тему", "user")
     mock_llm.assert_not_called()
     assert response.json().get("agentResponse") is None

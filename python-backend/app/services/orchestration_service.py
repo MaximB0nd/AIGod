@@ -65,7 +65,7 @@ def create_orchestration_client(room) -> Optional[OrchestrationClient]:
     base_adapter.register_agents_from_room(room.agents)
     adapter = _RelationshipEnhancingAdapter(base_adapter, room)
 
-    client = OrchestrationClient(agent_names, adapter)
+    client = OrchestrationClient(agent_names, adapter, room_id=room.id)
 
     if orchestration_type == "circular":
         strategy = CircularStrategy(client.context)

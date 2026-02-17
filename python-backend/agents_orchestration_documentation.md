@@ -36,11 +36,12 @@ text
 
 agents_orchestration/
 ├── __init__.py                 # Инициализация пакета
+├── events.py                    # UserMessageEvent — события очереди
 ├── message_type.py              # Типы сообщений (Enum)
 ├── message.py                   # Модель сообщения
 ├── context.py                   # Контекст разговора
 ├── base_strategy.py             # Базовый класс стратегии
-├── orchestration_client.py      # Основной клиент
+├── orchestration_client.py      # Основной клиент (enqueue_user_message)
 ├── strategies/
 │   ├── __init__.py
 │   ├── circular.py              # Циркулярная стратегия
@@ -75,7 +76,20 @@ class Message:
     target_agent: Optional[str]     # Целевой агент
     round_number: int                # Номер раунда
 
-3. Контекст разговора (ConversationContext)
+3. События очереди (UserMessageEvent)
+
+При POST /rooms/{roomId}/messages сообщение уходит в очередь оркестрации:
+python
+
+@dataclass
+class UserMessageEvent:
+    room_id: int
+    text: str
+    sender: str
+
+OrchestrationClient.enqueue_user_message(room_id, text, sender) создаёт событие и ставит в user_message_queue. _process_user_messages извлекает событие и вызывает strategy.handle_user_message(text).
+
+4. Контекст разговора (ConversationContext)
 
 Хранит состояние разговора и общую память:
 python
@@ -310,8 +324,11 @@ class OrchestrationClient:
     async def stop(self):
         """Остановка оркестрации"""
     
-    async def send_user_message(self, message: str):
-        """Отправка сообщения от пользователя"""
+    async def send_user_message(self, message: str, sender: str = "user"):
+        """Отправка сообщения от пользователя (создаёт UserMessageEvent, ставит в очередь)"""
+    
+    async def enqueue_user_message(self, room_id: int, text: str, sender: str = "user"):
+        """Явная постановка сообщения в очередь (для room-level endpoint: POST /rooms/{id}/messages)"""
     
     def get_statistics(self) -> dict:
         """Получение статистики"""

@@ -2,6 +2,7 @@ import asyncio
 from typing import List, Optional, Callable, Awaitable
 from .context import ConversationContext
 from .base_strategy import BaseStrategy
+from .events import UserMessageEvent
 from .message import Message
 from .message_type import MessageType
 
@@ -11,14 +12,15 @@ class OrchestrationClient:
     Управляет стратегией, обрабатывает сообщения и контролирует поток выполнения.
     """
     
-    def __init__(self, agents: List[str], chat_service: Callable[..., Awaitable[str]]):
+    def __init__(self, agents: List[str], chat_service: Callable[..., Awaitable[str]], room_id: Optional[int] = None):
         self.agents = agents
         self.chat_service = chat_service
+        self.room_id = room_id
         self.context = ConversationContext(participants=agents.copy())
         self.strategy: Optional[BaseStrategy] = None
         self.running = False
         self.message_queue = asyncio.Queue()
-        self.user_message_queue = asyncio.Queue()
+        self.user_message_queue: asyncio.Queue = asyncio.Queue()  # UserMessageEvent | str (legacy)
         self.tick_interval = 1.0
         self.max_ticks: Optional[int] = None
         self.current_tick = 0
@@ -58,9 +60,16 @@ class OrchestrationClient:
         if self.strategy:
             await self.strategy.on_stop()
     
-    async def send_user_message(self, message: str):
-        """Отправка сообщения от пользователя"""
-        await self.user_message_queue.put(message)
+    async def send_user_message(self, message: str, sender: str = "user"):
+        """Отправка сообщения от пользователя в очередь оркестрации."""
+        room_id = self.room_id or 0
+        event = UserMessageEvent(room_id=room_id, text=message, sender=sender)
+        await self.user_message_queue.put(event)
+
+    async def enqueue_user_message(self, room_id: int, text: str, sender: str = "user"):
+        """Явная постановка сообщения пользователя в очередь (для room-level endpoint)."""
+        event = UserMessageEvent(room_id=room_id, text=text, sender=sender)
+        await self.user_message_queue.put(event)
     
     async def _tick_loop(self):
         """Основной цикл тиков"""
@@ -88,12 +97,13 @@ class OrchestrationClient:
                 await asyncio.sleep(self.tick_interval)
     
     async def _process_user_messages(self):
-        """Обработка сообщений от пользователя"""
+        """Обработка сообщений от пользователя (UserMessageEvent или str для обратной совместимости)."""
         while self.running:
             try:
-                message = await self.user_message_queue.get()
+                item = await self.user_message_queue.get()
+                text = item.text if isinstance(item, UserMessageEvent) else item
                 if self.strategy:
-                    messages = await self.strategy.handle_user_message(message)
+                    messages = await self.strategy.handle_user_message(text)
                     for msg in messages:
                         self.context.add_message(msg)
                         await self.message_queue.put(msg)

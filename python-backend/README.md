@@ -23,10 +23,12 @@ Swagger: http://localhost:8000/docs
 
 ### Архитектура чата
 
-- **`POST /api/rooms/{roomId}/messages`** — сообщение в общий чат комнаты. Ответят все агенты.
+- **`POST /api/rooms/{roomId}/messages`** — сообщение в общий чат комнаты.
+  - Режим `single`: триггер ответа от каждого агента.
+  - Режим оркестрации: `enqueue_user_message` → `UserMessageEvent` → strategy → ответы.
 - **`POST /api/rooms/{roomId}/agents/{agentId}/messages`** — личная переписка с конкретным агентом.
 
-Для multi-agent UI используйте первый эндпоинт.
+Для multi-agent UI используйте первый эндпоинт. При старте оркестрации загружается история комнаты из БД.
 
 ### Устранение неполадок: чат пустой
 

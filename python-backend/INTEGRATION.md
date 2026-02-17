@@ -59,8 +59,21 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 ## Оркестрация
 
+### Pipeline обмена сообщениями
+
+```
+User → POST /rooms/{roomId}/messages
+     → Сохранить сообщение (agent_id=None)
+     → Broadcast в WebSocket
+     → enqueue_user_message(room_id, text, sender)
+     → UserMessageEvent в очередь оркестрации
+     → strategy.handle_user_message
+     → tick loop → агенты отвечают
+     → ответы в БД + broadcast
+```
+
 ### Тип комнаты `orchestration_type`
-- `single` — пользователь общается с одним агентом
+- `single` — пользователь общается с агентами (все отвечают напрямую)
 - `circular` — агенты общаются по кругу
 - `narrator` — агент-рассказчик
 - `full_context` — полный контекст для всех
@@ -72,7 +85,11 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 - `POST /api/rooms/{roomId}/orchestration/start` — запуск `OrchestrationClient`
 - `POST /api/rooms/{roomId}/orchestration/stop` — остановка
 
-При POST message в комнату с `orchestration_type != "single"` сообщение уходит в очередь оркестрации, ответы приходят через WebSocket.
+### Интеграция чата с оркестрацией
+- При первом `POST /messages` в комнате с оркестрацией создаётся `OrchestrationClient`
+- При старте загружается **история комнаты из БД** в контекст оркестрации
+- `enqueue_user_message(room_id, text, sender)` ставит `UserMessageEvent` в очередь
+- Стратегия обрабатывает событие, tick loop генерирует ответы агентов
 
 ---
 

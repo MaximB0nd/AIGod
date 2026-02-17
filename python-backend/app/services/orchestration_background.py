@@ -3,9 +3,13 @@
 
 При первом сообщении в комнате с orchestration_type != "single"
 создаётся OrchestrationClient, запускается в фоне, сообщения пользователя
-попадают в user_message_queue; ответы агентов сохраняются в БД и рассылаются via WebSocket.
+попадают в user_message_queue (UserMessageEvent); ответы агентов сохраняются
+в БД и рассылаются via WebSocket.
+
+Pipeline: User → POST /messages → enqueue_user_message → strategy → agents reply → broadcast
 """
 import asyncio
+from datetime import datetime
 from typing import Optional
 
 from sqlalchemy.orm import Session
@@ -18,6 +22,36 @@ from app.services.agents_orchestration.message import Message
 from app.services.agents_orchestration.message_type import MessageType
 from app.services.orchestration_service import create_orchestration_client
 from app.ws import broadcast_chat_message
+
+
+def _load_room_history(room_id: int, agents: list[Agent], limit: int = 20) -> list[Message]:
+    """
+    Загрузить историю сообщений комнаты из БД в формат оркестрации.
+    Orchestration получает контекст чата комнаты для корректного ответа.
+    """
+    session = SessionLocal()
+    try:
+        rows = (
+            session.query(DBMessage)
+            .filter(DBMessage.room_id == room_id)
+            .order_by(DBMessage.created_at.asc())
+            .limit(limit)
+            .all()
+        )
+        result = []
+        for m in rows:
+            msg_type = MessageType.USER if m.sender == "user" or m.agent_id is None else MessageType.AGENT
+            result.append(
+                Message(
+                    content=m.text,
+                    type=msg_type,
+                    sender=m.sender,
+                    timestamp=m.created_at or datetime.now(),
+                )
+            )
+        return result
+    finally:
+        session.close()
 
 
 def _agent_id_by_name(agents: list[Agent], name: str) -> Optional[int]:
@@ -94,6 +128,11 @@ class OrchestrationRegistry:
             client = create_orchestration_client(room)
             if not client:
                 return None
+
+            # Загружаем историю комнаты в контекст оркестрации
+            room_history = _load_room_history(room_id, list(room.agents))
+            for msg in room_history:
+                client.context.add_message(msg)
 
             callback = _make_message_callback(room_id, list(room.agents))
             client.on_message(callback)

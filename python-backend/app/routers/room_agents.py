@@ -624,8 +624,8 @@ async def send_room_message(
     if orchestration_type != "single":
         client = await registry.get_or_start(room)
         if client:
-            logger.info("Оркестрация: отправка в очередь room_id=%s", room.id)
-            await client.send_user_message(data.text)
+            logger.info("Оркестрация: enqueue_user_message room_id=%s", room.id)
+            await client.enqueue_user_message(room.id, data.text, data.sender)
             return MessageOut(
                 id=str(msg.id),
                 text=msg.text,
@@ -792,8 +792,8 @@ async def send_message(
         # Режим оркестрации: запускаем в фоне, кладём сообщение в очередь
         client = await registry.get_or_start(room)
         if client:
-            logger.info("Оркестрация: отправка в очередь")
-            await client.send_user_message(data.text)
+            logger.info("Оркестрация: enqueue_user_message room_id=%s", room.id)
+            await client.enqueue_user_message(room.id, data.text, data.sender)
             payload = {
                 "id": str(msg.id),
                 "text": msg.text,
