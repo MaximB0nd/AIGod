@@ -9,6 +9,7 @@
 Pipeline: User → POST /messages → enqueue_user_message → strategy → agents reply → broadcast
 """
 import asyncio
+import logging
 from datetime import datetime
 from typing import Optional
 
@@ -22,6 +23,8 @@ from app.services.agents_orchestration.message import Message
 from app.services.agents_orchestration.message_type import MessageType
 from app.services.orchestration_service import create_orchestration_client
 from app.ws import broadcast_chat_message
+
+logger = logging.getLogger("aigod.orchestration")
 
 
 def _load_room_history(room_id: int, agents: list[Agent], limit: int = 20) -> list[Message]:
@@ -49,6 +52,7 @@ def _load_room_history(room_id: int, agents: list[Agent], limit: int = 20) -> li
                     timestamp=m.created_at or datetime.now(),
                 )
             )
+        logger.info("orchestration: load_room_history room_id=%s загружено %d сообщений", room_id, len(result))
         return result
     finally:
         session.close()
@@ -66,14 +70,12 @@ def _make_message_callback(room_id: int, agents: list[Agent]):
     """Создать колбэк для сохранения и рассылки сообщений оркестрации."""
 
     async def on_message(msg: Message) -> None:
-        # Сохраняем и рассылаем только AGENT/NARRATOR; USER уже сохранён в send_message
         if msg.type not in (MessageType.AGENT, MessageType.NARRATOR, MessageType.SUMMARIZED):
-            if msg.type == MessageType.USER:
-                # Пользовательское уже в БД
-                pass
+            logger.debug("orchestration on_message room_id=%s skip type=%s", room_id, msg.type)
             return
 
         agent_id = _agent_id_by_name(agents, msg.sender)
+        logger.info("orchestration on_message room_id=%s type=%s sender=%s agent_id=%s", room_id, msg.type, msg.sender, agent_id)
         session: Session = SessionLocal()
         try:
             db_msg = DBMessage(
@@ -94,7 +96,9 @@ def _make_message_callback(room_id: int, agents: list[Agent]):
                 "timestamp": db_msg.created_at.isoformat() if db_msg.created_at else "",
             }
             await broadcast_chat_message(room_id, payload)
+            logger.info("orchestration on_message room_id=%s сохранено msg_id=%s broadcast OK", room_id, db_msg.id)
         except Exception as e:
+            logger.exception("orchestration on_message room_id=%s ошибка: %s", room_id, e)
             session.rollback()
             raise
         finally:
@@ -118,18 +122,21 @@ class OrchestrationRegistry:
         """
         orchestration_type = getattr(room, "orchestration_type", None) or "single"
         if orchestration_type == "single":
+            logger.debug("orchestration get_or_start room_id=%s skip (single)", room.id)
             return None
 
         room_id = room.id
         async with self._lock:
             if room_id in self._clients:
+                logger.info("orchestration get_or_start room_id=%s уже запущена", room_id)
                 return self._clients[room_id]
 
+            logger.info("orchestration get_or_start room_id=%s создаём клиент type=%s", room_id, orchestration_type)
             client = create_orchestration_client(room)
             if not client:
+                logger.warning("orchestration get_or_start room_id=%s create_orchestration_client вернул None", room_id)
                 return None
 
-            # Загружаем историю комнаты в контекст оркестрации
             room_history = _load_room_history(room_id, list(room.agents))
             for msg in room_history:
                 client.context.add_message(msg)
@@ -140,6 +147,7 @@ class OrchestrationRegistry:
             task = asyncio.create_task(client.start(max_ticks=None))
             self._clients[room_id] = client
             self._tasks[room_id] = task
+            logger.info("orchestration get_or_start room_id=%s ЗАПУЩЕНО agents=%s", room_id, [a.name for a in room.agents])
 
         return client
 
@@ -153,6 +161,7 @@ class OrchestrationRegistry:
             client = self._clients.pop(room_id, None)
             task = self._tasks.pop(room_id, None)
         if client and task:
+            logger.info("orchestration stop_room room_id=%s", room_id)
             await client.stop()
             task.cancel()
             try:
@@ -168,6 +177,7 @@ class OrchestrationRegistry:
             self._clients.clear()
             self._tasks.clear()
 
+        logger.info("orchestration stop_all rooms=%s", list(clients.keys()))
         for room_id, client in clients.items():
             await client.stop()
         for task in tasks.values():
@@ -178,3 +188,45 @@ class OrchestrationRegistry:
 
 # Глобальный реестр
 registry = OrchestrationRegistry()
+
+
+async def enqueue_room_run(room_id: int, text: str, sender: str = "user", room=None) -> bool:
+    """
+    Триггер оркестрации: поставить сообщение пользователя в очередь.
+
+    Вызывать после сохранения сообщения в БД. Запускает оркестратор (если ещё не запущен)
+    и кладёт UserMessageEvent в очередь. Без этого вызова агенты не получат сообщение.
+
+    Args:
+        room_id: ID комнаты
+        text: Текст сообщения
+        sender: Отправитель (по умолчанию "user")
+        room: Объект Room (опционально, для избежания доп. запроса)
+
+    Returns:
+        True если оркестрация активна и сообщение в очереди, False иначе (single mode).
+    """
+    if room is None:
+        from app.database.sqlite_setup import SessionLocal
+        from app.models.room import Room
+        session = SessionLocal()
+        try:
+            room = session.query(Room).filter(Room.id == room_id).first()
+        finally:
+            session.close()
+
+    if not room or not getattr(room, "agents", None) or not room.agents:
+        return False
+
+    orchestration_type = getattr(room, "orchestration_type", None) or "single"
+    if orchestration_type == "single":
+        logger.debug("enqueue_room_run room_id=%s skip (single)", room_id)
+        return False
+
+    client = await registry.get_or_start(room)
+    if client:
+        await client.enqueue_user_message(room_id, text, sender)
+        logger.info("enqueue_room_run room_id=%s enqueued text_len=%d sender=%s", room_id, len(text), sender)
+        return True
+    logger.warning("enqueue_room_run room_id=%s client=None, не удалось поставить в очередь", room_id)
+    return False

@@ -5,12 +5,15 @@ YandexAgentAdapter — адаптер для использования YandexAg
 Адаптер усиливает промпт контекстом разговора и передаёт в YandexAgentClient.
 """
 import asyncio
+import logging
 from datetime import datetime
 from typing import Optional
 
 from app.services.agents_orchestration.context import ConversationContext
 from app.services.prompts import get_system_prompt
 from app.services.yandex_client.yandex_agent_client import YandexAgentClient, Agent
+
+logger = logging.getLogger("aigod.orchestration.yandex_adapter")
 
 
 class YandexAgentAdapter:
@@ -36,6 +39,7 @@ class YandexAgentAdapter:
         """
         for agent in room_agents:
             self.register_agent(agent.name, agent.personality or "")
+        logger.info("YandexAgentAdapter register_agents_from_room agents=%s", [a.name for a in room_agents])
 
     def _create_session_id(self, strategy_name: str) -> str:
         """Создание уникального ID сессии."""
@@ -56,8 +60,11 @@ class YandexAgentAdapter:
         """
         agent = self.agents.get(agent_name)
         if not agent:
+            logger.warning("YandexAgentAdapter agent=%s не найден", agent_name)
             return f"[{agent_name}] Агент не найден"
 
+        ctx_len = len(context.history) if context and context.history else 0
+        logger.info("YandexAgentAdapter call agent=%s session=%s prompt_len=%d context_msgs=%d", agent_name, session_id, len(prompt), ctx_len)
         if context and context.history:
             recent = context.get_recent_messages(5)
             context_text = "\n".join([f"{m.sender}: {m.content}" for m in recent])
@@ -75,6 +82,6 @@ class YandexAgentAdapter:
 
         actual_session_id = session_id or self._create_session_id("unknown")
         response = self.client.send_message(agent, actual_session_id, enhanced_prompt)
-
+        logger.info("YandexAgentAdapter response agent=%s len=%d", agent_name, len(response) if response else 0)
         await asyncio.sleep(0.5)
         return response

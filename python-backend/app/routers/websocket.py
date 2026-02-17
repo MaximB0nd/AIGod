@@ -18,7 +18,7 @@ from jose import JWTError, jwt
 from app.models.room import Room
 from app.ws import chat_manager, graph_manager
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("aigod.ws.router")
 
 router = APIRouter(prefix="/rooms", tags=["websocket"])
 
@@ -48,6 +48,7 @@ def _check_room_access(room_id: int, user_email: str) -> bool:
 
 async def _reject_and_close(websocket: WebSocket, code: int, reason: str) -> None:
     """Отклоняет подключение и закрывает сокет."""
+    logger.warning("WS reject code=%s reason=%s", code, reason)
     await websocket.close(code=code, reason=reason[:123])  # reason max 123 bytes
 
 
@@ -64,21 +65,23 @@ async def room_chat(
 
     Подключение: ws://host/api/rooms/{roomId}/chat?token=JWT
     """
-    # Проверка токена
+    logger.info("WS chat: попытка подключения room_id=%s token=%s", room_id, "yes" if token else "no")
     email = _verify_token(token)
     if not email:
+        logger.warning("WS chat: room_id=%s токен невалиден или отсутствует", room_id)
         await _reject_and_close(websocket, 4001, "Unauthorized: token required")
         return
 
     if not _check_room_access(room_id, email):
+        logger.warning("WS chat: room_id=%s доступ запрещён для %s", room_id, email)
         await _reject_and_close(websocket, 4003, "Forbidden: no access to room")
         return
 
     await websocket.accept()
+    logger.info("WS chat: accept room_id=%s", room_id)
     await chat_manager.connect(websocket, room_id)
 
     try:
-        # Подтверждение подключения
         await websocket.send_json({
             "type": "connected",
             "payload": {"roomId": str(room_id), "message": "Подключено к чату комнаты"},
@@ -86,18 +89,19 @@ async def room_chat(
 
         while True:
             data = await websocket.receive_text()
-            # Ping для поддержания соединения
             try:
                 msg = json.loads(data)
                 if msg.get("type") == "ping":
                     await websocket.send_json({"type": "pong", "payload": {}})
+                    logger.debug("WS chat: ping→pong room_id=%s", room_id)
+                else:
+                    logger.debug("WS chat: received room_id=%s type=%s", room_id, msg.get("type"))
             except (json.JSONDecodeError, TypeError):
-                pass
-            # Игнорируем остальные входящие (клиент только наблюдает)
+                logger.debug("WS chat: received raw room_id=%s len=%d", room_id, len(data))
     except WebSocketDisconnect:
-        pass
+        logger.info("WS chat: disconnect room_id=%s (клиент отключился)", room_id)
     except Exception as e:
-        logger.exception("chat ws error room=%s: %s", room_id, e)
+        logger.exception("WS chat error room_id=%s: %s", room_id, e)
         try:
             await websocket.send_json({"type": "error", "payload": {"message": str(e)}})
         except Exception:
@@ -122,6 +126,7 @@ async def room_graph(
     Формат обновления:
     { "type": "edge_update", "payload": { "roomId": "1", "from": "1", "to": "2", "sympathyLevel": 0.7 } }
     """
+    logger.info("WS graph: попытка подключения room_id=%s", room_id)
     email = _verify_token(token)
     if not email:
         await _reject_and_close(websocket, 4001, "Unauthorized: token required")
@@ -132,6 +137,7 @@ async def room_graph(
         return
 
     await websocket.accept()
+    logger.info("WS graph: accept room_id=%s", room_id)
     await graph_manager.connect(websocket, room_id)
 
     try:
@@ -146,12 +152,13 @@ async def room_graph(
                 msg = json.loads(data)
                 if msg.get("type") == "ping":
                     await websocket.send_json({"type": "pong", "payload": {}})
+                    logger.debug("WS graph: ping→pong room_id=%s", room_id)
             except (json.JSONDecodeError, TypeError):
                 pass
     except WebSocketDisconnect:
-        pass
+        logger.info("WS graph: disconnect room_id=%s", room_id)
     except Exception as e:
-        logger.exception("graph ws error room=%s: %s", room_id, e)
+        logger.exception("WS graph error room_id=%s: %s", room_id, e)
         try:
             await websocket.send_json({"type": "error", "payload": {"message": str(e)}})
         except Exception:

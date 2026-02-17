@@ -105,7 +105,7 @@ def test_send_message_calls_llm_for_single_mode(
     assert call_args[1].get("room") == room
 
 
-@patch("app.routers.room_agents.registry")
+@patch("app.services.orchestration_background.registry")
 def test_send_message_uses_orchestration_for_circular_mode(
     mock_registry,
     client: TestClient,
@@ -118,7 +118,7 @@ def test_send_message_uses_orchestration_for_circular_mode(
     mock_client.enqueue_user_message = AsyncMock()
     mock_registry.get_or_start = AsyncMock(return_value=mock_client)
 
-    with patch("app.routers.room_agents.get_agent_response") as mock_llm:
+    with patch("app.routers.room_agents.get_agent_response", return_value="Ответ агента") as mock_llm:
         response = client.post(
             f"/api/rooms/{room.id}/agents/{agent.id}/messages",
             json={"text": "Обсудим тему", "sender": "user"},

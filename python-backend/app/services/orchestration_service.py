@@ -4,7 +4,10 @@
 Создаёт OrchestrationClient + YandexAgentAdapter из room.agents,
 как в examples/usage.py. Обогащает промпты контекстом отношений.
 """
+import logging
 from typing import Optional
+
+logger = logging.getLogger("aigod.orchestration.service")
 
 from app.services.agents_orchestration import OrchestrationClient
 from app.services.agents_orchestration.strategies import (
@@ -54,11 +57,14 @@ def create_orchestration_client(room) -> Optional[OrchestrationClient]:
 
     agent_names = [a.name for a in room.agents]
     if not agent_names:
+        logger.warning("create_orchestration_client room_id=%s agents=[]", room.id)
         return None
 
     try:
         yandex_client = YandexAgentClient()
-    except Exception:
+        logger.info("create_orchestration_client room_id=%s YandexAgentClient OK", room.id)
+    except Exception as e:
+        logger.warning("create_orchestration_client room_id=%s YandexAgentClient fail: %s", room.id, e)
         return None
 
     base_adapter = YandexAgentAdapter(yandex_client)
@@ -89,4 +95,5 @@ def create_orchestration_client(room) -> Optional[OrchestrationClient]:
         return None
 
     client.set_strategy(strategy)
+    logger.info("create_orchestration_client room_id=%s type=%s strategy=%s agents=%s", room.id, orchestration_type, strategy.__class__.__name__, agent_names)
     return client

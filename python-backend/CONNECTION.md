@@ -85,6 +85,9 @@ Authorization: Bearer <token>
    `POST /api/rooms/{roomId}/messages` с `{ "text": "Привет", "sender": "user" }`  
    Ответят все агенты комнаты.
 
+   **Важно:** Используйте именно `POST /messages` для отправки сообщений пользователя.  
+   `POST /events/broadcast` — для системных событий. Если всё же используете events/broadcast для сообщений, передайте `type: "user_message"` или `type: "chat"`, тогда сообщение также триггернет агентов.
+
    **Личная переписка с агентом:**  
    `POST /api/rooms/{roomId}/agents/{agentId}/messages` — сообщение конкретному агенту.
 

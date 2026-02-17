@@ -44,7 +44,7 @@ def get_agent_response(
         return "Агент временно недоступен. Настройте YANDEX_CLOUD_FOLDER и YANDEX_CLOUD_API_KEY в .env."
 
     try:
-        logger.info("LLM: запрос agent=%s session=%s", agent.name, session_id)
+        logger.info("LLM: запрос agent=%s session=%s text_len=%d room_id=%s", agent.name, session_id, len(text), getattr(room, "id", None) if room else None)
         from app.services.yandex_client.chat_service import ChatService
         from app.services.prompt_enhancer import enhance_prompt_with_relationship
         from app.services.prompts import get_system_prompt
@@ -67,7 +67,7 @@ def get_agent_response(
         adapter.prompt = base_prompt
         chat_service = ChatService()
         result = chat_service.process_message(adapter, session_id, text)
-        logger.info("LLM: ответ получен agent=%s len=%d", agent.name, len(result) if result else 0)
+        logger.info("LLM: ответ получен agent=%s len=%d preview=%.50s...", agent.name, len(result) if result else 0, (result or "")[:50])
         return result
     except Exception as e:
         logger.exception("LLM error: %s", e)

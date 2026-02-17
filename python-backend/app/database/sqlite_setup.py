@@ -17,9 +17,21 @@ else:
 _is_memory = ":memory:" in SQLITE_URL
 engine = create_engine(
     SQLITE_URL,
-    connect_args={"check_same_thread": False},  # для FastAPI + тестов (многопоточность)
-    poolclass=StaticPool if _is_memory else None,  # один connection для :memory:
+    connect_args={
+        "check_same_thread": False,
+        "timeout": 15,
+    },
+    poolclass=StaticPool if _is_memory else None,
 )
+
+# Включаем foreign keys для SQLite (нужно для CASCADE при удалении комнаты)
+import sqlite3
+from sqlalchemy import event
+
+@event.listens_for(engine, "connect")
+def _enable_sqlite_fk(dbapi_connection, _):
+    if isinstance(dbapi_connection, sqlite3.Connection):
+        dbapi_connection.execute("PRAGMA foreign_keys=ON")
 
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 

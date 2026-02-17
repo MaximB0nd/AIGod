@@ -17,6 +17,9 @@
 | `YANDEX_CLOUD_API_KEY` | API key (можно с префиксом `Api-Key `) | — |
 | `SQLITE_DB_PATH` | Путь к SQLite БД | `aigod.db` |
 | `SECRET_KEY` | JWT секрет | (встроенный) |
+| `LOG_LEVEL` | Уровень логов: `DEBUG`, `INFO`, `WARNING`, `ERROR` | `INFO` |
+
+**`LOG_LEVEL=DEBUG`** — полное логирование WebSocket (connect/disconnect/broadcast), оркестрации (enqueue, tick, strategy), LLM-запросов.
 
 ### Запуск
 

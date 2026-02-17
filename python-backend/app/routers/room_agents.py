@@ -40,7 +40,7 @@ from app.schemas.api import (
     SuccessOut,
 )
 from app.services.llm_service import get_agent_response
-from app.services.orchestration_background import registry
+from app.services.orchestration_background import enqueue_room_run, registry
 from app.services.relationship_model_service import get_relationship_manager
 from app.services.room_services_registry import (
     get_emotional_integration,
@@ -483,9 +483,8 @@ def create_event(
 
 
 @router.post("/events/broadcast", response_model=EventOut)
-def broadcast_event(
+async def broadcast_event(
     data: EventBroadcastIn,
-    background_tasks: BackgroundTasks,
     room: Room = Depends(get_room_for_user),
     db: Session = Depends(get_db),
 ):
@@ -508,7 +507,34 @@ def broadcast_event(
         "description": event.description,
         "timestamp": event.created_at.isoformat() if event.created_at else "",
     }
-    background_tasks.add_task(broadcast_chat_event, room.id, payload)
+    await broadcast_chat_event(room.id, payload)
+
+    # Если type="user_message" или "chat" — сообщение пользователя в чат, триггерим агентов
+    if data.type in ("user_message", "chat") and room.agents:
+        msg = Message(room_id=room.id, agent_id=None, text=data.description, sender="user")
+        db.add(msg)
+        db.commit()
+        db.refresh(msg)
+        payload_user = {
+            "id": str(msg.id),
+            "text": msg.text,
+            "sender": msg.sender,
+            "agentId": None,
+            "timestamp": msg.created_at.isoformat() if msg.created_at else "",
+            "agentResponse": None,
+        }
+        await broadcast_chat_message(room.id, payload_user)
+        enqueued = await enqueue_room_run(room.id, data.description, "user", room=room)
+        if enqueued:
+            logger.info("events/broadcast user_message: оркестрация room_id=%s", room.id)
+        else:
+            for agent in room.agents:
+                asyncio.create_task(
+                    _generate_agent_reply_async(
+                        room.id, agent.id, agent.name, data.description, "user"
+                    )
+                )
+            logger.info("events/broadcast user_message: триггер %d агентов room_id=%s", len(room.agents), room.id)
 
     return EventOut(
         id=str(event.id),
@@ -530,15 +556,19 @@ async def _generate_agent_reply_async(
     Фоновая задача: сгенерировать ответ агента на сообщение в комнату.
     Вызывается для каждого агента при POST /messages (общий чат комнаты).
     """
+    logger.info("_generate_agent_reply START room_id=%s agent_id=%s agent_name=%s", room_id, agent_id, agent_name)
     db = SessionLocal()
     try:
         room = db.query(Room).filter(Room.id == room_id).first()
         if not room:
+            logger.warning("_generate_agent_reply room_id=%s room not found", room_id)
             return
         agent = _agent_in_room(room, agent_id)
         if not agent:
+            logger.warning("_generate_agent_reply room_id=%s agent_id=%s not in room", room_id, agent_id)
             return
         session_id = f"room_{room_id}_agent_{agent_id}"
+        logger.info("_generate_agent_reply LLM call room_id=%s agent=%s session=%s", room_id, agent_name, session_id)
         loop = asyncio.get_event_loop()
         agent_response = await loop.run_in_executor(
             None,
@@ -553,6 +583,7 @@ async def _generate_agent_reply_async(
         db.add(agent_msg)
         db.commit()
         db.refresh(agent_msg)
+        logger.info("_generate_agent_reply saved msg_id=%s room_id=%s agent=%s response_len=%d", agent_msg.id, room_id, agent_name, len(agent_response or ""))
         payload = {
             "id": str(agent_msg.id),
             "text": agent_msg.text,
@@ -562,6 +593,7 @@ async def _generate_agent_reply_async(
             "agentResponse": None,
         }
         await broadcast_chat_message(room_id, payload)
+        logger.info("_generate_agent_reply DONE room_id=%s agent=%s broadcast OK", room_id, agent_name)
         # Обновление памяти/эмоций — sync, запускаем в executor чтобы не блокировать
         loop = asyncio.get_event_loop()
         await loop.run_in_executor(
@@ -622,10 +654,9 @@ async def send_room_message(
     orchestration_type = getattr(room, "orchestration_type", None) or "single"
 
     if orchestration_type != "single":
-        client = await registry.get_or_start(room)
-        if client:
-            logger.info("Оркестрация: enqueue_user_message room_id=%s", room.id)
-            await client.enqueue_user_message(room.id, data.text, data.sender)
+        enqueued = await enqueue_room_run(room.id, data.text, data.sender, room=room)
+        if enqueued:
+            logger.info("Оркестрация: enqueue_room_run room_id=%s — сообщение в очереди", room.id)
             return MessageOut(
                 id=str(msg.id),
                 text=msg.text,
@@ -634,9 +665,9 @@ async def send_room_message(
                 agentId=None,
                 agentResponse=None,
             )
-        logger.warning("Оркестрация не создана, fallback: триггер всех агентов")
+        logger.warning("Оркестрация не создана (Yandex?), fallback: триггер всех агентов")
 
-    # Режим single: триггерим ответ от каждого агента
+    # Режим single (или fallback): триггерим ответ от каждого агента
     for agent in room.agents:
         asyncio.create_task(
             _generate_agent_reply_async(
@@ -789,11 +820,9 @@ async def send_message(
     logger.info("Сообщение пользователя сохранено msg_id=%s", msg.id)
 
     if orchestration_type != "single":
-        # Режим оркестрации: запускаем в фоне, кладём сообщение в очередь
-        client = await registry.get_or_start(room)
-        if client:
-            logger.info("Оркестрация: enqueue_user_message room_id=%s", room.id)
-            await client.enqueue_user_message(room.id, data.text, data.sender)
+        enqueued = await enqueue_room_run(room.id, data.text, data.sender, room=room)
+        if enqueued:
+            logger.info("Оркестрация: enqueue_room_run room_id=%s (POST /agents/{id}/messages)", room.id)
             payload = {
                 "id": str(msg.id),
                 "text": msg.text,

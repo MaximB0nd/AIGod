@@ -3,10 +3,14 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+_log_level = getattr(logging, (__import__("os").environ.get("LOG_LEVEL", "INFO")).upper(), logging.INFO)
 logging.basicConfig(
-    level=logging.INFO,
+    level=_log_level,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
+# Полное логирование WebSocket и оркестрации (LOG_LEVEL=DEBUG для подробностей)
+for _name in ("aigod.ws", "aigod.orchestration", "aigod.llm", "aigod.room_agents"):
+    logging.getLogger(_name).setLevel(_log_level)
 from sqlalchemy.orm import Session
 
 from app.data.default_agents_data import agents_data

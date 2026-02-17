@@ -11,7 +11,7 @@ from typing import Any
 
 from fastapi import WebSocket
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("aigod.ws.manager")
 
 
 class ConnectionManager:
@@ -30,7 +30,12 @@ class ConnectionManager:
         await self._lock.acquire()
         try:
             self._connections[room_id].add(websocket)
-            logger.info("%s: client connected to room %s, total=%d", self.name, room_id, len(self._connections[room_id]))
+            total = len(self._connections[room_id])
+            total_conns = sum(len(s) for s in self._connections.values())
+            logger.info(
+                "WS [%s] connect room_id=%s total_in_room=%d total_all=%d",
+                self.name, room_id, total, total_conns,
+            )
         finally:
             self._lock.release()
 
@@ -40,9 +45,15 @@ class ConnectionManager:
             conns = self._connections.get(room_id)
             if conns:
                 conns.discard(websocket)
+                remaining = len(conns) if conns else 0
                 if not conns:
                     del self._connections[room_id]
-            logger.info("%s: client disconnected from room %s", self.name, room_id)
+                logger.info(
+                    "WS [%s] disconnect room_id=%s remaining=%d",
+                    self.name, room_id, remaining,
+                )
+            else:
+                logger.info("WS [%s] disconnect room_id=%s (уже отключён)", self.name, room_id)
 
     async def broadcast(self, room_id: int, message: dict[str, Any]) -> None:
         """
@@ -53,16 +64,29 @@ class ConnectionManager:
             conns = set(self._connections.get(room_id, []))  # copy
 
         if not conns:
-            logger.warning("%s: broadcast room_id=%s — 0 подключений, сообщение не доставлено", self.name, room_id)
+            logger.warning(
+                "WS [%s] broadcast room_id=%s type=%s — 0 подключений, сообщение не доставлено",
+                self.name, room_id, message.get("type"),
+            )
             return
 
-        logger.info("%s: broadcast room_id=%s msg_type=%s → %d клиентов", self.name, room_id, message.get("type"), len(conns))
+        msg_type = message.get("type")
+        payload_preview = ""
+        if "payload" in message:
+            p = message["payload"]
+            if isinstance(p, dict):
+                payload_preview = " id=%s sender=%s" % (str(p.get("id", "")), str(p.get("sender", "")))
+        logger.info(
+            "WS [%s] broadcast room_id=%s type=%s → %d клиентов%s",
+            self.name, room_id, msg_type, len(conns), payload_preview,
+        )
         dead: set[WebSocket] = set()
         for ws in conns:
             try:
                 await ws.send_json(message)
+                logger.debug("WS [%s] send_json OK room_id=%s type=%s", self.name, room_id, msg_type)
             except Exception as e:
-                logger.warning("%s: send failed for room %s: %s", self.name, room_id, e)
+                logger.warning("WS [%s] send_json FAIL room_id=%s: %s", self.name, room_id, e)
                 dead.add(ws)
 
         if dead:

@@ -8,8 +8,12 @@ from sqlalchemy.orm import Session
 
 from app.database.sqlite_setup import get_db
 from app.dependencies import get_current_user, get_room_for_user
+from app.models.event import Event
+from app.models.message import Message
+from app.models.relationship import Relationship
 from app.models.room import Room
 from app.models.user import User
+from app.services.orchestration_background import registry
 from app.schemas.api import (
     RoomCreateIn,
     RoomOut,
@@ -82,13 +86,21 @@ def update_room(
 
 
 @router.delete("/{room_id}", status_code=204)
-def delete_room(
+async def delete_room(
     room: Room = Depends(get_room_for_user),
     db: Session = Depends(get_db),
 ):
-    """Удалить комнату."""
+    """Удалить комнату и все её данные: сообщения, события, оркестрация."""
+    room_id = room.id
+    # Остановить оркестрацию
+    await registry.stop_room(room_id)
+    # Явно удалить сообщения и события чата (CASCADE может не сработать без PRAGMA foreign_keys)
+    db.query(Message).filter(Message.room_id == room_id).delete(synchronize_session=False)
+    db.query(Event).filter(Event.room_id == room_id).delete(synchronize_session=False)
+    db.query(Relationship).filter(Relationship.room_id == room_id).delete(synchronize_session=False)
     db.delete(room)
     db.commit()
+    logger.info("Удалена комната room_id=%s (сообщения, события, оркестрация)", room_id)
 
 
 # --- Вложенные роуты (agents, events, feed, relationships) ---
