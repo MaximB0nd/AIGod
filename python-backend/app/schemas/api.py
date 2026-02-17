@@ -119,6 +119,13 @@ class PlansListOut(BaseModel):
 
 
 # --- Relationships ---
+class RelationshipUpdateIn(BaseModel):
+    """Обновление ребра графа: agent1_id < agent2_id для упорядоченности."""
+    agent1Id: int
+    agent2Id: int
+    sympathyLevel: float = Field(..., ge=-1.0, le=1.0)
+
+
 class RelationshipNodeOut(BaseModel):
     id: str
     name: str

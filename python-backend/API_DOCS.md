@@ -356,6 +356,23 @@ Authorization: Bearer <token>
 
 ---
 
+### PATCH /api/rooms/{roomId}/relationships
+Обновить ребро графа отношений. Рассылает обновление в WebSocket графа. **Требует Bearer token.**
+
+**Тело (JSON):**
+```json
+{
+  "agent1Id": 1,
+  "agent2Id": 2,
+  "sympathyLevel": 0.7
+}
+```
+`sympathyLevel`: -1.0 .. 1.0
+
+**Ответ:** `{ "from": "1", "to": "2", "sympathyLevel": 0.7 }`
+
+---
+
 ### GET /api/rooms/{roomId}/relationships
 Связи агентов в комнате. **Требует Bearer token.**
 
@@ -535,26 +552,32 @@ Authorization: Bearer <token>
 
 ## WebSocket
 
-### WS /api/rooms/{roomId}/stream
-Поток событий комнаты в реальном времени.
+### WS /api/rooms/{roomId}/chat
+Чат комнаты: сообщения от агентов и системные события в реальном времени.
 
-**Подключение:**
-```
-ws://localhost:8000/api/rooms/1/stream?token=JWT
-```
+**Подключение:** `ws://localhost:8000/api/rooms/1/chat?token=JWT`
 
-**Формат сообщений (заглушка):** при подключении отправляется:
-```json
-{
-  "type": "info",
-  "payload": {
-    "message": "Подключено к комнате 1...",
-    "roomId": "1"
-  }
-}
-```
+**Входящие от сервера:**
+- `{"type": "connected", "payload": {"roomId": "1", ...}}` — при подключении
+- `{"type": "message", "payload": {"id", "text", "sender", "agentId?", "timestamp", "agentResponse?"}}` — новое сообщение
+- `{"type": "event", "payload": {"id", "eventType", "agentIds", "description", "timestamp"}}` — событие
+- `{"type": "pong", "payload": {}}` — ответ на ping
 
-**Ping/Pong:** отправь `{"type": "ping"}` — в ответ придёт `{"type": "pong", "payload": {}}`.
+**Ping:** отправь `{"type": "ping"}` для поддержания соединения.
+
+---
+
+### WS /api/rooms/{roomId}/graph
+Граф отношений: обновления рёбер в реальном времени.
+
+**Подключение:** `ws://localhost:8000/api/rooms/1/graph?token=JWT`
+
+**Входящие от сервера:**
+- `{"type": "connected", "payload": {"roomId": "1", ...}}` — при подключении
+- `{"type": "edge_update", "payload": {"roomId", "from", "to", "sympathyLevel"}}` — обновление ребра
+- `{"type": "pong", "payload": {}}` — ответ на ping
+
+Клиент обновляет D3.js/vis-network по `edge_update` без перезапроса всего графа.
 
 ---
 
@@ -579,6 +602,7 @@ ws://localhost:8000/api/rooms/1/stream?token=JWT
 | DELETE | /api/rooms/{roomId}/agents/{agentId} | Bearer |
 | GET | /api/rooms/{roomId}/agents/{agentId}/memories | Bearer |
 | GET | /api/rooms/{roomId}/agents/{agentId}/plans | Bearer |
+| PATCH | /api/rooms/{roomId}/relationships | Bearer |
 | GET | /api/rooms/{roomId}/relationships | Bearer |
 | POST | /api/rooms/{roomId}/events | Bearer |
 | POST | /api/rooms/{roomId}/events/broadcast | Bearer |
@@ -586,4 +610,5 @@ ws://localhost:8000/api/rooms/1/stream?token=JWT
 | POST | /api/rooms/{roomId}/agents/{agentId}/messages | Bearer |
 | PATCH | /api/rooms/{roomId}/speed | Bearer |
 | GET | /api/agents | — |
-| WS | /api/rooms/{roomId}/stream | token в query |
+| WS | /api/rooms/{roomId}/chat | token в query |
+| WS | /api/rooms/{roomId}/graph | token в query |
