@@ -12,8 +12,8 @@ export interface CreateRoomRequest {
   orchestration_type?: 'single' | 'circular' | 'narrator' | 'full_context'
 }
 
+/** PATCH /api/rooms/{roomId} — только description и speed (0.1–10.0) */
 export interface UpdateRoomRequest {
-  name?: string
   description?: string
   speed?: number
 }

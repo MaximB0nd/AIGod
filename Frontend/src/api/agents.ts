@@ -146,19 +146,18 @@ export interface DefaultAgentTemplate {
 
 /**
  * GET /api/default-agents — список шаблонов для создания агента. Без авторизации.
- * Поддерживает ответ как массив, так и { items } / { defaultAgents }.
+ * Контракт: массив [{ id, name, personality_preview, avatar_url }]
  */
 export async function fetchDefaultAgents(): Promise<DefaultAgentSummary[]> {
-  const res = await apiFetch<DefaultAgentSummary[] | { items?: DefaultAgentSummary[]; defaultAgents?: DefaultAgentSummary[] }>(
-    `/api/default-agents`,
-    { skipAuth: true }
-  )
-  if (Array.isArray(res)) return res
-  return res?.items ?? res?.defaultAgents ?? []
+  const res = await apiFetch<DefaultAgentSummary[]>(`/api/default-agents`, {
+    skipAuth: true,
+  })
+  return Array.isArray(res) ? res : []
 }
 
 /**
  * GET /api/default-agents/{id} — полный шаблон для предзаполнения формы. Без авторизации.
+ * Контракт: { id, name, character, avatar }
  */
 export async function fetchDefaultAgent(id: number): Promise<DefaultAgentTemplate> {
   return apiFetch<DefaultAgentTemplate>(`/api/default-agents/${id}`, {
