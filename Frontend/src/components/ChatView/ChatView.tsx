@@ -37,6 +37,8 @@ export function ChatView({ onAddCharacter, onToggleSidebar, sidebarCollapsed, on
   const scrollHeightBeforeLoadRef = useRef(0)
   /** Пропустить следующий scroll-to-bottom — подгрузка старых сообщений, сохраняем позицию */
   const skipNextScrollToBottomRef = useRef(false)
+  /** Пользователь внизу скролла — автоскролл только если true */
+  const userAtBottomRef = useRef(true)
   const [showGroupInfo, setShowGroupInfo] = useState(false)
   const [profileAgentId, setProfileAgentId] = useState<string | null>(null)
 
@@ -47,6 +49,23 @@ export function ChatView({ onAddCharacter, onToggleSidebar, sidebarCollapsed, on
   const handleGroupClick = useCallback(() => {
     setShowGroupInfo(true)
   }, [])
+
+  // Отслеживаем, находится ли пользователь внизу скролла
+  useEffect(() => {
+    const container = scrollRef.current
+    if (!container) return
+
+    const checkAtBottom = () => {
+      const threshold = 80
+      const atBottom =
+        container.scrollHeight - container.scrollTop - container.clientHeight <= threshold
+      userAtBottomRef.current = atBottom
+    }
+
+    container.addEventListener('scroll', checkAtBottom, { passive: true })
+    checkAtBottom()
+    return () => container.removeEventListener('scroll', checkAtBottom)
+  }, [activeChat?.id])
 
   // Перед подгрузкой старых сообщений — помечаем, что следующий scroll-to-bottom пропустить
   useEffect(() => {
@@ -59,7 +78,7 @@ export function ChatView({ onAddCharacter, onToggleSidebar, sidebarCollapsed, on
     }
   }, [isLoadMoreLoading])
 
-  // Скролл вниз при загрузке/обновлении ленты. Пропускаем при подгрузке старых сообщений.
+  // Скролл вниз при загрузке/обновлении ленты. Только если пользователь уже внизу.
   useLayoutEffect(() => {
     const container = scrollRef.current
     if (!container || feed.length === 0) return
@@ -67,6 +86,12 @@ export function ChatView({ onAddCharacter, onToggleSidebar, sidebarCollapsed, on
       skipNextScrollToBottomRef.current = false
       return
     }
+
+    // Начальная загрузка — всегда скроллим вниз
+    const isInitialLoad = prevFeedLengthRef.current === 0
+    // Новые сообщения — скроллим только если пользователь был внизу
+    const shouldScroll = isInitialLoad || userAtBottomRef.current
+    if (!shouldScroll) return
 
     const scrollToBottom = () => {
       container.scrollTop = container.scrollHeight
@@ -77,8 +102,12 @@ export function ChatView({ onAddCharacter, onToggleSidebar, sidebarCollapsed, on
     const raf1 = requestAnimationFrame(() => {
       raf2 = requestAnimationFrame(() => {
         scrollToBottom()
+        userAtBottomRef.current = true
         // Fallback: на медленных устройствах layout может завершиться позже
-        fallbackId = setTimeout(scrollToBottom, 100)
+        fallbackId = setTimeout(() => {
+          scrollToBottom()
+          userAtBottomRef.current = true
+        }, 100)
       })
     })
     return () => {
