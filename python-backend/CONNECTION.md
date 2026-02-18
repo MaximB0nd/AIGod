@@ -110,6 +110,8 @@ ws://localhost:8000/api/rooms/{roomId}/graph?token={JWT}
 
 Подробнее: `WEBSOCKET_CLIENT.md`.
 
+**Полная документация для клиента:** `CLIENT_DOCUMENTATION.md` — структура API, эндпоинты, изменения, логи.
+
 ---
 
 ## 5. CORS

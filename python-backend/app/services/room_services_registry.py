@@ -14,23 +14,48 @@ _emotional_integrations: dict[int, "EmotionalOrchestrationIntegration"] = {}
 
 
 def get_memory_integration(room) -> Optional["MemoryOrchestrationIntegration"]:
-    """Получить интеграцию памяти для комнаты (короткий контекст, без ChromaDB)."""
+    """
+    Получить интеграцию памяти для комнаты.
+
+    При доступном ChromaDB (CHROMA_PERSIST_DIR) использует векторное хранилище
+    для долгосрочной памяти комнаты. Иначе — только short-term.
+    """
     room_id = room.id
     if room_id in _memory_integrations:
         return _memory_integrations[room_id]
     try:
-        from app.services.context_memory import MemoryManager
+        from app.services.context_memory.memory_manager import MemoryManager
         from app.services.context_memory.integration import MemoryOrchestrationIntegration
         from app.services.context_memory.models import ImportanceLevel
 
+        vector_store = None
+        try:
+            from app.config import config
+            persist_dir = config.CHROMA_PERSIST_DIR
+        except Exception:
+            persist_dir = __import__("os").environ.get("CHROMA_PERSIST_DIR", "./chroma_db")
+        try:
+            from app.services.context_memory.vector_store import (
+                VectorMemoryStore,
+                CHROMA_AVAILABLE,
+            )
+            if CHROMA_AVAILABLE and persist_dir:
+                vector_store = VectorMemoryStore(
+                    collection_name=f"room_memory_{room_id}",
+                    persist_directory=persist_dir,
+                )
+        except Exception as e:
+            vector_store = None
+            # ChromaDB может падать из-за np.float_ в NumPy 2.0 — работаем без vector_store
+
         manager = MemoryManager(
-            vector_store=None,  # без ChromaDB — только short-term
+            vector_store=vector_store,
             summarizer=None,
             conversation_id=f"room_{room_id}",
         )
         integration = MemoryOrchestrationIntegration(
             memory_manager=manager,
-            auto_summarize=False,  # без суммаризатора
+            auto_summarize=False,
             importance_threshold=ImportanceLevel.MEDIUM,
         )
         _memory_managers[room_id] = manager

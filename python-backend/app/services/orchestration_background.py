@@ -67,7 +67,7 @@ def _agent_id_by_name(agents: list[Agent], name: str) -> Optional[int]:
 
 
 def _make_message_callback(room_id: int, agents: list[Agent]):
-    """Создать колбэк для сохранения и рассылки сообщений оркестрации."""
+    """Создать колбэк для сохранения, рассылки, памяти и обновления графа отношений."""
 
     async def on_message(msg: Message) -> None:
         if msg.type not in (MessageType.AGENT, MessageType.NARRATOR, MessageType.SUMMARIZED):
@@ -103,6 +103,60 @@ def _make_message_callback(room_id: int, agents: list[Agent]):
             raise
         finally:
             session.close()
+
+        # Обновить граф отношений (эвристический анализатор)
+        try:
+            from app.models.room import Room
+            from app.database.sqlite_setup import SessionLocal
+            from app.services.relationship_model_service import get_relationship_manager
+            s = SessionLocal()
+            try:
+                room = s.query(Room).filter(Room.id == room_id).first()
+                if room and room.agents:
+                    mgr = get_relationship_manager(room)
+                    agent_names = [a.name for a in room.agents]
+                    await mgr.process_message(
+                        message=msg.content,
+                        sender=msg.sender,
+                        participants=agent_names,
+                    )
+                    logger.debug("orchestration graph updated room_id=%s sender=%s", room_id, msg.sender)
+            finally:
+                s.close()
+        except Exception as e:
+            logger.debug("orchestration graph update failed: %s", e)
+
+        # Сохранить в память (user_msg + agent_msg) если есть последний запрос пользователя
+        try:
+            client = registry.get(room_id)
+            if client and client.context:
+                from app.services.room_services_registry import get_memory_integration
+                from app.services.context_memory.models import ImportanceLevel
+                from app.models.room import Room
+                s2 = SessionLocal()
+                try:
+                    room = s2.query(Room).filter(Room.id == room_id).first()
+                    if room:
+                        integration = get_memory_integration(room)
+                        if integration:
+                            user_msgs = [
+                                m for m in client.context.history
+                                if m.type == MessageType.USER or (m.sender or "").lower() in ("user", "пользователь")
+                            ]
+                            last_user = user_msgs[-1].content if user_msgs else None
+                            if last_user:
+                                text = f"User: {last_user}\n{msg.sender}: {msg.content}"
+                                await integration.memory_manager.add_message(
+                                    content=text,
+                                    sender=msg.sender,
+                                    importance=ImportanceLevel.MEDIUM,
+                                    metadata={"room_id": room_id, "pipeline": "orchestration"},
+                                )
+                                logger.debug("orchestration memory stored room_id=%s", room_id)
+                finally:
+                    s2.close()
+        except Exception as e:
+            logger.debug("orchestration memory store failed: %s", e)
 
     return on_message
 

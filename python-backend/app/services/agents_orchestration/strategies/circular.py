@@ -14,16 +14,18 @@ class CircularStrategy(BaseStrategy):
     - При вмешательстве пользователя круг начинается заново
     """
     
-    def __init__(self, context: ConversationContext, 
+    def __init__(self, context: ConversationContext,
                  start_agent_index: int = 0,
-                 include_system_messages: bool = True):
+                 include_system_messages: bool = True,
+                 max_rounds: int = 5):
         super().__init__(context)
         self.current_agent_index = start_agent_index
         self.include_system_messages = include_system_messages
+        self.max_rounds = max_rounds  # Защита от бесконечного цикла
         self.round_count = 1
         self.user_interrupted = False
         self.last_user_message: Optional[str] = None
-        self.waiting_for_user_response = False  # Флаг ожидания ответа на сообщение пользователя
+        self.waiting_for_user_response = False
     
     async def tick(self, agents: List[str]) -> Optional[List[Message]]:
         if not agents:
@@ -133,29 +135,54 @@ class CircularStrategy(BaseStrategy):
         return [message]
     
     async def handle_user_message(self, message: str) -> List[Message]:
-        """Обработка сообщения пользователя"""
+        """Обработка сообщения пользователя. Сохраняем в context — центр для всех промптов."""
         self.user_interrupted = True
         self.last_user_message = message
+        self.context.current_user_message = message
+        self.context.update_memory("_user_message", message)
         # Не создаем сообщение здесь, оно будет создано в tick
         return []
     
     def _build_agent_prompt(self, agent: str, context_text: str, last_message: Message) -> str:
-        """Формирование промпта для агента"""
+        """Формирование промпта для агента. ЗАПРОС ПОЛЬЗОВАТЕЛЯ — в центре, чтобы агенты не игнорировали его."""
+        user_msg = (
+            self.context.current_user_message
+            or self.last_user_message
+            or self.context.get_memory("_user_message")
+            or ""
+        )
+        memory_ctx = self.context.get_memory("_memory_context") or ""
+
         prompt_parts = [
-            f"Ты {agent} в циркулярном разговоре.",
-            f"Текущий раунд: {self.round_count}",
-            f"\nКонтекст разговора:",
-            context_text,
-            f"\nПоследнее сообщение от {last_message.sender}:",
-            f"\"{last_message.content}\"",
-            "\nПродолжи разговор, отвечая на последнее сообщение. Будь естественным и поддерживай диалог."
+            f"Ты {agent} в циркулярном разговоре. Текущий раунд: {self.round_count}.",
         ]
-        
+        if user_msg:
+            prompt_parts.extend([
+                "",
+                "═══ ЗАПРОС ПОЛЬЗОВАТЕЛЯ (ГЛАВНЫЙ ФОКУС — НЕ ИГНОРИРУЙ) ═══",
+                f"«{user_msg}»",
+                "",
+            ])
+        if memory_ctx:
+            prompt_parts.extend([
+                "Релевантные воспоминания из памяти:",
+                memory_ctx,
+                "",
+            ])
+        prompt_parts.extend([
+            "Обсуждение агентов:",
+            context_text,
+            "",
+            f"Последнее сообщение от {last_message.sender}:",
+            f"«{last_message.content}»",
+            "",
+            "Продолжи обсуждение ЗАПРОСА ПОЛЬЗОВАТЕЛЯ. Отвечай на последнее сообщение, но помни о запросе пользователя.",
+        ])
+
         if self.context.current_topic:
             prompt_parts.insert(1, f"Тема: {self.context.current_topic}")
-        
         return "\n".join(prompt_parts)
     
     def should_stop(self) -> bool:
-        """Проверка, нужно ли остановиться"""
-        return False
+        """Остановиться после max_rounds кругов (защита от зацикливания)."""
+        return self.round_count > self.max_rounds

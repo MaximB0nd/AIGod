@@ -36,12 +36,16 @@ def get_or_create_relationship_manager(room) -> RelationshipManager:
     Получить или создать RelationshipManager для комнаты.
 
     Регистрирует агентов и синхронизирует с БД.
+    Использует HeuristicRelationshipAnalyzer для обновления графа без LLM.
     """
+    from app.services.relationship_model.heuristic_analyzer import HeuristicRelationshipAnalyzer
+
     room_id = room.id
     agent_by_id = {a.id: a.name for a in room.agents}
     agent_names = list(agent_by_id.values())
 
-    manager = RelationshipManager(analyzer=None)
+    analyzer = HeuristicRelationshipAnalyzer(influence_coefficient=0.3)
+    manager = RelationshipManager(analyzer=analyzer)
     manager.register_participants(agent_names)
     _sync_from_db(manager, room_id, agent_by_id)
 

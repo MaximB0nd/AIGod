@@ -24,7 +24,7 @@ class RelationshipManager:
         # Подписчики на события
         self._event_handlers: Dict[EventType, List[Callable]] = {}
         
-        # Если есть анализатор, подписываемся на его результаты
+        # Если есть анализатор, подписываемся на его результаты (LLM RelationshipAnalyzer)
         if analyzer:
             analyzer.on_analysis(self._on_analysis_result)
     

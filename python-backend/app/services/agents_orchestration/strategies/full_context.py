@@ -200,9 +200,11 @@ class FullContextStrategy(BaseStrategy):
             metadata={"influence_context": True}
         )
         
+        self.context.current_user_message = message
+        self.context.update_memory("_user_message", message)
         self.context.update_memory("user_input", message)
         self.context.update_memory("user_input_round", self.current_round)
-        
+
         return [user_msg]
     
     def should_stop(self) -> bool:

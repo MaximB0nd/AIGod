@@ -83,18 +83,27 @@ class MemoryOrchestrationIntegration:
                                     agent_name: str,
                                     original_prompt: str,
                                     query: Optional[str] = None) -> str:
-        """
-        Обогатить промпт контекстом из памяти
-        """
-        # Используем сам запрос или оригинальный промпт для поиска
-        search_query = query or original_prompt
-        
-        # Получаем релевантный контекст
-        context = self.memory_manager.get_relevant_context(
-            query=search_query,
-            max_tokens=800  # 800 токенов на контекст
+        """Синхронная обёртка. В async предпочитайте enhance_prompt_with_context_async."""
+        import asyncio
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+        if loop:
+            raise RuntimeError("Use enhance_prompt_with_context_async in async context")
+        return asyncio.run(
+            self.enhance_prompt_with_context_async(agent_name, original_prompt, query)
         )
-        
+
+    async def enhance_prompt_with_context_async(self,
+                                               agent_name: str,
+                                               original_prompt: str,
+                                               query: Optional[str] = None) -> str:
+        """Обогатить промпт контекстом из памяти (async)."""
+        search_query = query or original_prompt
+        context = await self.memory_manager.get_relevant_context_async(
+            query=search_query, max_tokens=800
+        )
         if context:
             return f"""
 {context}
@@ -104,7 +113,6 @@ class MemoryOrchestrationIntegration:
 
 Учитывай предыдущий контекст в своём ответе.
 """
-        
         return original_prompt
     
     def get_conversation_summary(self) -> str:

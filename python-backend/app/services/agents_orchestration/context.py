@@ -8,12 +8,16 @@ class ConversationContext:
     """
     Хранит состояние разговора и общую память для всех стратегий.
     Доступен из любой стратегии и может быть расширен.
+
+    ВАЖНО: current_user_message — запрос пользователя в центре итерации.
+    Без него агенты зацикливаются и общаются друг с другом, игнорируя пользователя.
     """
     history: List[Message] = field(default_factory=list)
     shared_memory: Dict[str, Any] = field(default_factory=dict)
     current_topic: Optional[str] = None
     participants: List[str] = field(default_factory=list)
     metadata: Dict[str, Any] = field(default_factory=dict)
+    current_user_message: Optional[str] = None  # Запрос пользователя, центр итерации
     
     def add_message(self, message: Message):
         """Добавить сообщение в историю"""

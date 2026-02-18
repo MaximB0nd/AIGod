@@ -174,6 +174,8 @@ class NarratorStrategy(BaseStrategy):
         return min(agents, key=lambda a: sender_counts.get(a, 0))
     
     async def handle_user_message(self, message: str) -> List[Message]:
+        self.context.current_user_message = message
+        self.context.update_memory("_user_message", message)
         prompt = f"""
         A reader suggests: {message}
         

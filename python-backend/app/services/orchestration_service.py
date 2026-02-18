@@ -22,12 +22,13 @@ from app.services.yandex_client.yandex_agent_client import YandexAgentClient
 
 
 class _RelationshipEnhancingAdapter:
-    """Оборачивает YandexAgentAdapter, добавляя контекст отношений в промпт."""
+    """Оборачивает YandexAgentAdapter: контекст отношений + память (ChromaDB)."""
 
     def __init__(self, inner: YandexAgentAdapter, room):
         self.inner = inner
         self.room = room
         self._rel_manager = None
+        self._memory_integration = None
 
     def _get_rel_manager(self):
         if self._rel_manager is None:
@@ -37,7 +38,35 @@ class _RelationshipEnhancingAdapter:
                 pass
         return self._rel_manager
 
+    def _get_memory_integration(self):
+        if self._memory_integration is None:
+            try:
+                from app.services.room_services_registry import get_memory_integration
+                self._memory_integration = get_memory_integration(self.room)
+            except Exception:
+                pass
+        return self._memory_integration
+
     async def __call__(self, agent_name: str, session_id: str, prompt: str, context=None) -> str:
+        # 1. Память: обогатить промпт контекстом из ChromaDB
+        user_msg = None
+        if context:
+            user_msg = getattr(context, "current_user_message", None) or context.get_memory("_user_message")
+        mem_integration = self._get_memory_integration()
+        if mem_integration and (user_msg or prompt):
+            try:
+                prompt = await mem_integration.enhance_prompt_with_context_async(
+                    agent_name, prompt, query=user_msg or prompt
+                )
+                if context and user_msg:
+                    ctx = await mem_integration.memory_manager.get_relevant_context_async(
+                        user_msg or prompt, max_tokens=500
+                    )
+                    if ctx:
+                        context.update_memory("_memory_context", ctx)
+            except Exception as e:
+                logger.debug("memory enhance failed: %s", e)
+        # 2. Отношения
         rel_manager = self._get_rel_manager()
         if rel_manager:
             prompt = enhance_prompt_with_relationship(rel_manager, agent_name, prompt)
@@ -74,7 +103,7 @@ def create_orchestration_client(room) -> Optional[OrchestrationClient]:
     client = OrchestrationClient(agent_names, adapter, room_id=room.id)
 
     if orchestration_type == "circular":
-        strategy = CircularStrategy(client.context)
+        strategy = CircularStrategy(client.context, max_rounds=5)
     elif orchestration_type == "narrator":
         narrator = agent_names[0]
         strategy = NarratorStrategy(

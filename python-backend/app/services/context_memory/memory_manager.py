@@ -7,11 +7,21 @@ from datetime import datetime, timedelta
 import uuid
 
 from .models import (
-    MemoryItem, MemoryType, ImportanceLevel, 
+    MemoryItem, MemoryType, ImportanceLevel,
     MemoryStats, ContextWindow, Summary
 )
-from .vector_store import VectorMemoryStore
-from .summarizer import ContextSummarizer
+
+# Ленивые импорты — chromadb и tiktoken могут отсутствовать
+try:
+    from .summarizer import ContextSummarizer
+except Exception:
+    ContextSummarizer = None  # type: ignore
+
+# Lazy import VectorMemoryStore — chromadb может падать при np.float_ (NumPy 2.0)
+try:
+    from .vector_store import VectorMemoryStore
+except Exception:
+    VectorMemoryStore = None  # type: ignore
 from .compression import ContextCompressor
 
 class MemoryManager:
@@ -20,8 +30,8 @@ class MemoryManager:
     """
     
     def __init__(self,
-                 vector_store: Optional[VectorMemoryStore] = None,
-                 summarizer: Optional[ContextSummarizer] = None,
+                 vector_store: Optional[Any] = None,
+                 summarizer: Optional[Any] = None,
                  conversation_id: str = "default"):
         
         self.vector_store = vector_store
@@ -204,20 +214,29 @@ class MemoryManager:
     
     def get_relevant_context(self, query: str, max_tokens: int = 1000) -> str:
         """
-        Получить релевантный контекст для промпта
+        Синхронная обёртка. В async-коде предпочитайте get_relevant_context_async.
         """
-        # Ищем в памяти
-        memories = asyncio.run(self.search_memory(
-            query=query,
-            n_results=5
-        ))
-        
-        # Получаем оптимальный контекст
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+        if loop:
+            raise RuntimeError(
+                "Use get_relevant_context_async() in async context"
+            )
+        return asyncio.run(self._get_relevant_context_impl(query, max_tokens))
+
+    async def get_relevant_context_async(self, query: str, max_tokens: int = 1000) -> str:
+        """Асинхронно получить релевантный контекст из памяти."""
+        return await self._get_relevant_context_impl(query, max_tokens)
+
+    async def _get_relevant_context_impl(self, query: str, max_tokens: int) -> str:
+        memories = await self.search_memory(query=query, n_results=5)
         return self.compressor.get_optimal_context(
             query=query,
-            recent_messages=self.context_window.messages[-20:],  # последние 20
+            recent_messages=self.context_window.messages[-20:],
             vector_memories=memories,
-            max_tokens=max_tokens
+            max_tokens=max_tokens,
         )
     
     async def create_summary(self, chunk_size: int = 50) -> Optional[Summary]:
