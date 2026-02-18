@@ -67,12 +67,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    const stored = loadStoredAuth()
-    if (stored) {
-      setUser(stored.user)
+    let cancelled = false
+    const init = async () => {
+      const stored = loadStoredAuth()
+      if (!stored) {
+        setIsLoading(false)
+        return
+      }
       setToken(stored.token)
+      setTokenGetter(() => stored.token)
+      try {
+        const user = await authApi.getMe()
+        if (!cancelled) {
+          setUser(user)
+          localStorage.setItem(
+            STORAGE_KEY,
+            JSON.stringify({ ...stored, user })
+          )
+        }
+      } catch {
+        if (!cancelled) {
+          clearAuth()
+          setUser(null)
+          setToken(null)
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
     }
-    setIsLoading(false)
+    init()
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   useEffect(() => {

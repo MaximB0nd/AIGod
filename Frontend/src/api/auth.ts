@@ -27,3 +27,14 @@ export async function login(data: LoginRequest): Promise<AuthResponse> {
     skipAuth: true,
   })
 }
+
+/**
+ * GET /api/auth/me — текущий пользователь (Bearer token)
+ * token и refreshToken в ответе пустые — клиент хранит токен из login
+ */
+export async function getMe(): Promise<AuthUser> {
+  const res = await apiFetch<{ id: string; email: string; username: string }>(
+    '/api/auth/me'
+  )
+  return { id: res.id, email: res.email, username: res.username }
+}
