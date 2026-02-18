@@ -8,6 +8,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
   type ReactNode,
 } from 'react'
@@ -70,6 +71,9 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const [isMessagesLoading, setIsMessagesLoading] = useState(false)
   const [isLoadMoreLoading, setIsLoadMoreLoading] = useState(false)
   const [lastRoomSpeedUpdate, setLastRoomSpeedUpdate] = useState<{ roomId: string; speed: number } | null>(null)
+  /** Текущий активный чат — для проверки при завершении асинхронной загрузки (избегаем race condition) */
+  const activeChatIdRef = useRef<string | null>(null)
+  activeChatIdRef.current = activeChat?.id ?? null
 
   const updateRoomSpeedFromExternal = useCallback((roomId: string, speed: number) => {
     setLastRoomSpeedUpdate({ roomId, speed })
@@ -107,18 +111,25 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     try {
       const { messages: msgs, feed: feedItems, characters: agents } =
         await chatApi.fetchMessagesFeedAndCharacters(chatId)
-      setMessages(msgs)
-      setFeed(feedItems.sort(sortFeed))
-      setCharacters(agents)
-      setHasMoreMessages(true)
+      // Применяем результат только если пользователь не переключился на другой чат
+      if (activeChatIdRef.current === chatId) {
+        setMessages(msgs)
+        setFeed(feedItems.sort(sortFeed))
+        setCharacters(agents)
+        setHasMoreMessages(true)
+      }
     } catch (err) {
       console.error('Failed to load messages:', err)
-      setMessages([])
-      setFeed([])
-      setCharacters([])
-      setHasMoreMessages(false)
+      if (activeChatIdRef.current === chatId) {
+        setMessages([])
+        setFeed([])
+        setCharacters([])
+        setHasMoreMessages(false)
+      }
     } finally {
-      setIsMessagesLoading(false)
+      if (activeChatIdRef.current === chatId) {
+        setIsMessagesLoading(false)
+      }
     }
   }, [])
 
