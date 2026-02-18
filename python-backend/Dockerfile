@@ -2,7 +2,9 @@ FROM python:3.13-slim
 
 WORKDIR /app
 
-# API без chromadb (для LLM с памятью добавь chromadb в requirements-docker.txt)
+# chromadb/hnswlib требуют C++ — в slim нет компилятора; отключаем нативную сборку
+ENV HNSWLIB_NO_NATIVE=1
+
 COPY requirements-docker.txt .
 RUN pip install --no-cache-dir -r requirements-docker.txt
 

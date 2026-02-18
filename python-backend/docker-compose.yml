@@ -9,6 +9,9 @@ services:
     environment:
       - SECRET_KEY=${SECRET_KEY:-aigod-hackathon-change-in-production}
       - SQLITE_DB_PATH=/app/persist/aigod.db
+      - YANDEX_CLOUD_FOLDER=${YANDEX_CLOUD_FOLDER}
+      - YANDEX_CLOUD_API_KEY=${YANDEX_CLOUD_API_KEY}
+      - API_MESSAGE_LIMIT_PER_DAY=${API_MESSAGE_LIMIT_PER_DAY:-100}
     restart: unless-stopped
 
 volumes:
