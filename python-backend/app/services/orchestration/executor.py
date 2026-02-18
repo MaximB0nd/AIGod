@@ -133,6 +133,11 @@ class PipelineExecutor:
                 if msg.type in (MessageType.AGENT, MessageType.NARRATOR, MessageType.SUMMARIZED):
                     await self.on_message(msg)
 
+        # При speed=1 задержка 2 с; при speed=2 — 1 с; при 0.5 — 4 с
+        base_delay = 2.0
+        speed = max(0.1, float(getattr(self.room, "speed", None) or 1.0))
+        tick_delay = base_delay / speed
+
         round_count = 0
         while round_count < self.max_discuss_rounds:
             if self.strategy.should_stop():
@@ -141,7 +146,7 @@ class PipelineExecutor:
             messages = await self.strategy.tick(self.agents)
             if not messages:
                 round_count += 1
-                await asyncio.sleep(0.3)
+                await asyncio.sleep(tick_delay)
                 continue
 
             for msg in messages:
@@ -164,7 +169,7 @@ class PipelineExecutor:
                         pass
 
             round_count += 1
-            await asyncio.sleep(0.3)
+            await asyncio.sleep(tick_delay)
 
     async def _stage_synthesize(self, state: TaskState) -> None:
         """Обязательный этап: SolutionSynthesizer — FINAL DECISION MAKER. ВСЕГДА выполняется."""
@@ -212,18 +217,25 @@ class PipelineExecutor:
     async def _stage_update_graph(self, state: TaskState) -> None:
         """Обязательный этап: обновить граф (из facts + heuristic по сообщениям)."""
         try:
-            from app.services.relationship_model_service import get_relationship_manager
+            from app.services.relationship_model_service import (
+                get_relationship_manager,
+                sync_graph_to_db_and_broadcast,
+            )
 
             manager = get_relationship_manager(self.room)
             if state.extracted_facts:
                 manager.update_from_facts(state.extracted_facts, state.agent_names)
+            prev_texts: list[str] = []
             for msg in state.discussion_messages:
                 if hasattr(msg, "sender") and hasattr(msg, "content"):
                     await manager.process_message(
                         message=msg.content,
                         sender=msg.sender,
                         participants=state.agent_names,
+                        context=prev_texts.copy() if prev_texts else None,
                     )
+                    prev_texts.append(f"{msg.sender}: {msg.content}")
+            await sync_graph_to_db_and_broadcast(self.room, manager)
             state.graph_updated = True
         except Exception as e:
             logger.warning("_stage_update_graph: %s", e)

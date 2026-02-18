@@ -1,7 +1,7 @@
 fastapi>=0.115.0
 uvicorn[standard]>=0.24.0
 yandex-ai-studio-sdk
-chromadb==0.4.18
+chromadb>=0.5.3  # 0.5.3+ совместим с NumPy 2.0; 0.4.x падает с np.float_
 tiktoken>=0.5.0
 openai==1.3.5
 python-dotenv==1.0.0

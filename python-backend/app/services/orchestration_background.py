@@ -86,6 +86,22 @@ def _make_message_callback(room_id: int, agents: list[Agent]):
             session.commit()
             session.refresh(db_msg)
 
+            # SQL Memory — мост для API keyMemories (только для агентов комнаты)
+            if agent_id and msg.content and msg.type == MessageType.AGENT:
+                try:
+                    from app.models.memory import Memory
+                    m = Memory(
+                        agent_id=agent_id,
+                        room_id=room_id,
+                        content=msg.content[:2000] if len(msg.content) > 2000 else msg.content,
+                        importance=0.6,
+                    )
+                    session.add(m)
+                    session.commit()
+                except Exception as e:
+                    logger.warning("orchestration SQL Memory write failed: %s", e)
+                    session.rollback()
+
             payload = {
                 "id": str(db_msg.id),
                 "text": db_msg.text,
@@ -154,12 +170,12 @@ class OrchestrationRegistry:
         return self._clients.get(room_id)
 
     async def stop_room(self, room_id: int) -> None:
-        """Остановить оркестрацию комнаты."""
+        """Остановить оркестрацию комнаты (long-running client). Pipeline отменяется через cancel_pipeline_task."""
         async with self._lock:
             client = self._clients.pop(room_id, None)
             task = self._tasks.pop(room_id, None)
         if client and task:
-            logger.info("orchestration stop_room room_id=%s", room_id)
+            logger.info("orchestration stop_room room_id=%s (registry client)", room_id)
             await client.stop()
             task.cancel()
             try:
@@ -186,6 +202,17 @@ class OrchestrationRegistry:
 
 # Глобальный реестр
 registry = OrchestrationRegistry()
+
+# Задачи pipeline по room_id (для stop)
+_pipeline_tasks: dict[int, asyncio.Task] = {}
+_pipeline_lock: asyncio.Lock | None = None
+
+
+def _get_pipeline_lock() -> asyncio.Lock:
+    global _pipeline_lock
+    if _pipeline_lock is None:
+        _pipeline_lock = asyncio.Lock()
+    return _pipeline_lock
 
 
 async def run_pipeline_executor(room_id: int, text: str, sender: str = "user", room=None) -> bool:
@@ -237,9 +264,44 @@ async def run_pipeline_executor(room_id: int, text: str, sender: str = "user", r
         max_discuss_rounds=50,
     )
 
-    asyncio.create_task(executor.run(text, sender))
+    task = asyncio.create_task(_run_and_cleanup(room_id, executor, text, sender))
+    async with _get_pipeline_lock():
+        old = _pipeline_tasks.pop(room_id, None)
+        if old and not old.done():
+            old.cancel()
+            try:
+                await old
+            except asyncio.CancelledError:
+                pass
+        _pipeline_tasks[room_id] = task
     logger.info("run_pipeline_executor room_id=%s STARTED text_len=%d sender=%s", room_id, len(text), sender)
     return True
+
+
+async def _run_and_cleanup(room_id: int, executor, text: str, sender: str) -> None:
+    """Запуск executor и удаление задачи из _pipeline_tasks по завершении."""
+    try:
+        await executor.run(text, sender)
+    except asyncio.CancelledError:
+        logger.info("run_pipeline_executor room_id=%s CANCELLED", room_id)
+    finally:
+        async with _get_pipeline_lock():
+            _pipeline_tasks.pop(room_id, None)
+
+
+async def cancel_pipeline_task(room_id: int) -> bool:
+    """Отменить выполняющийся pipeline для комнаты. Возвращает True если задача была отменена."""
+    async with _get_pipeline_lock():
+        task = _pipeline_tasks.pop(room_id, None)
+    if task and not task.done():
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+        logger.info("cancel_pipeline_task room_id=%s cancelled", room_id)
+        return True
+    return False
 
 
 async def enqueue_room_run(room_id: int, text: str, sender: str = "user", room=None) -> bool:

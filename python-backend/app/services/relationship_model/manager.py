@@ -146,9 +146,11 @@ class RelationshipManager:
                              message: str,
                              sender: str,
                              participants: List[str],
+                             context: Optional[List[str]] = None,
                              message_id: Optional[str] = None) -> Optional[AnalysisResult]:
         """
-        Обработать сообщение и обновить отношения
+        Обработать сообщение и обновить отношения.
+        context: предыдущие сообщения (напр. ["Agent1: текст", "Agent2: ответ"]) для ответа на конкретного.
         """
         if not self.analyzer:
             return None
@@ -158,17 +160,18 @@ class RelationshipManager:
             message=message,
             sender=sender,
             participants=participants,
+            context=context,
             message_id=message_id
         )
         
         if result:
-            # Применяем влияния
+            # Применяем влияния (HeuristicAnalyzer уже умножает на influence_coefficient)
             for target, impact in result.impacts.items():
                 if target in participants:
                     self.update_relationship(
                         from_entity=sender,
                         to_entity=target,
-                        delta=impact * self.analyzer.influence_coefficient,
+                        delta=impact,
                         reason=result.reason,
                         source="analysis"
                     )

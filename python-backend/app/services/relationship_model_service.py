@@ -3,6 +3,7 @@
 
 Хранит RelationshipManager на каждую комнату, синхронизирует начальное состояние с БД.
 """
+import logging
 from typing import Optional
 
 from sqlalchemy.orm import Session
@@ -10,6 +11,8 @@ from sqlalchemy.orm import Session
 from app.database.sqlite_setup import SessionLocal
 from app.models.relationship import Relationship as DBRelationship
 from app.services.relationship_model import RelationshipManager
+
+logger = logging.getLogger("aigod.relationship_model")
 
 
 def _sync_from_db(manager: RelationshipManager, room_id: int, agent_by_id: dict) -> None:
@@ -64,3 +67,53 @@ def get_relationship_manager(room) -> RelationshipManager:
     дополняются актуальными значениями из БД (relationships table).
     """
     return get_or_create_relationship_manager(room)
+
+
+async def sync_graph_to_db_and_broadcast(room, manager: RelationshipManager) -> None:
+    """
+    Сохранить граф RelationshipManager в БД и разослать обновления через WebSocket.
+    Вызывать после обновления графа (например, после _stage_update_graph).
+    """
+    from app.ws import broadcast_graph_edge
+
+    room_id = room.id
+    name_to_id = {a.name: a.id for a in room.agents}
+    session: Session = SessionLocal()
+    seen_pairs: set[tuple[int, int]] = set()
+    try:
+        for from_name, targets in manager.graph.edges.items():
+            from_id = name_to_id.get(from_name)
+            if not from_id:
+                continue
+            for to_name, rel in targets.items():
+                to_id = name_to_id.get(to_name)
+                if not to_id or from_id == to_id:
+                    continue
+                a1, a2 = min(from_id, to_id), max(from_id, to_id)
+                if (a1, a2) in seen_pairs:
+                    continue
+                seen_pairs.add((a1, a2))
+                val = (manager.get_relationship_value(from_name, to_name) + manager.get_relationship_value(to_name, from_name)) / 2.0
+                db_rel = session.query(DBRelationship).filter(
+                    DBRelationship.room_id == room_id,
+                    DBRelationship.agent1_id == a1,
+                    DBRelationship.agent2_id == a2,
+                ).first()
+                if db_rel:
+                    db_rel.sympathy_value = round(val, 4)
+                    db_rel.interaction_count = (db_rel.interaction_count or 0) + 1
+                else:
+                    session.add(DBRelationship(
+                        room_id=room_id,
+                        agent1_id=a1,
+                        agent2_id=a2,
+                        sympathy_value=round(val, 4),
+                        interaction_count=1,
+                    ))
+                await broadcast_graph_edge(room_id, str(a1), str(a2), round(val, 4))
+        session.commit()
+    except Exception as e:
+        session.rollback()
+        logger.warning("sync_graph_to_db_and_broadcast: %s", e)
+    finally:
+        session.close()

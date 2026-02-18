@@ -71,7 +71,7 @@ Authorization: Bearer <token>
 ### Создание комнаты и добавление агента
 1. `POST /api/auth/login` → сохранить `token`
 2. `POST /api/rooms` с `{ "name": "Моя комната", "orchestration_type": "single" }` → получить `roomId`
-   - При `orchestration_type`: `circular`, `narrator`, `full_context` — автоматически добавляется агент «Рассказчик»
+   - При `orchestration_type`: `narrator` — автоматически добавляется агент «Рассказчик»
 3. `GET /api/default-agents` → список шаблонов
 4. `GET /api/default-agents/1` → `{ name, character, avatar }` для формы
 5. `POST /api/rooms/{roomId}/agents` с `{ name, character, avatar }` → агент добавлен

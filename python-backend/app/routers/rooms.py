@@ -42,9 +42,9 @@ def list_rooms(
 
 
 def _ensure_narrator_agent_in_room(room: Room, current_user: User, db: Session) -> None:
-    """Добавить агента «Рассказчик» в комнату при circular/narrator/full_context (видимый агент)."""
+    """Добавить агента «Рассказчик» в комнату ТОЛЬКО при narrator (видимый агент). В circular и full_context — нет."""
     ot = getattr(room, "orchestration_type", None) or "single"
-    if ot not in ("circular", "narrator", "full_context"):
+    if ot != "narrator":
         return
     if any(a.name == NARRATOR_AGENT_NAME for a in room.agents):
         return
@@ -69,7 +69,7 @@ def create_room(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Создать комнату. Клиент выбирает orchestration_type при создании. При narrator/full_context/circular — автоматически добавляется агент «Рассказчик» (пользователь его видит)."""
+    """Создать комнату. При narrator — автоматически добавляется агент «Рассказчик» (пользователь его видит)."""
     room = Room(
         name=data.name,
         description=data.description,

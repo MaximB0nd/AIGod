@@ -1,37 +1,43 @@
 """
 Эвристический анализатор отношений без LLM.
 
-Обновляет граф по ключевым словам (согласен, не согласен, поддерживаю и т.д.)
-когда LLM-анализатор недоступен.
+Обновляет граф по ключевым словам и по участию в диалоге (даже при коротком общении).
 """
 import re
 import logging
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from .models import AnalysisResult
 from datetime import datetime
 
 logger = logging.getLogger("aigod.relationship.heuristic")
 
+# Базовое влияние при участии в диалоге (любое сообщение немного сближает)
+PARTICIPATION_DELTA = 0.06
+# Влияние при ответе на предыдущего спикера
+RESPONSE_TO_PREVIOUS_DELTA = 0.08
 
-# Ключевые слова: фраза -> (направление, сила)
-# Направление: +1 улучшает, -1 ухудшает
+# Ключевые слова: фраза -> сила влияния
 POSITIVE_PATTERNS = [
-    (r"\bсогласен\b", 0.15),
-    (r"\bподдерживаю\b", 0.15),
-    (r"\bотлично\b", 0.1),
-    (r"\bправильно\b", 0.1),
-    (r"\bхорошо\b", 0.08),
+    (r"\bсогласен\b", 0.18),
+    (r"\bподдерживаю\b", 0.18),
+    (r"\bотлично\b", 0.12),
+    (r"\bправильно\b", 0.12),
+    (r"\bхорошо\b", 0.1),
     (r"\bда\s*,?\s*(именно|верно)", 0.12),
-    (r"\bполностью\s+согласен\b", 0.2),
-    (r"\bточно\b", 0.08),
+    (r"\bполностью\s+согласен\b", 0.25),
+    (r"\bточно\b", 0.1),
+    (r"\bинтересно\b", 0.08),
+    (r"\bспасибо\b", 0.1),
+    (r"\bблагодар\b", 0.12),
 ]
 NEGATIVE_PATTERNS = [
-    (r"\bне\s+согласен\b", -0.15),
-    (r"\bспорно\b", -0.1),
-    (r"\bнеправильно\b", -0.12),
-    (r"\bнесогласен\b", -0.15),
-    (r"\bневерно\b", -0.12),
+    (r"\bне\s+согласен\b", -0.18),
+    (r"\bспорно\b", -0.12),
+    (r"\bнеправильно\b", -0.14),
+    (r"\bнесогласен\b", -0.18),
+    (r"\bневерно\b", -0.14),
+    (r"\bабсурд\b", -0.15),
 ]
 
 
@@ -54,39 +60,57 @@ class HeuristicRelationshipAnalyzer:
         context: List[str] | None = None,
         message_id: str | None = None,
     ) -> AnalysisResult | None:
-        """Оценить влияние сообщения на отношения с другими участниками."""
+        """Оценить влияние сообщения на отношения. Всегда возвращает результат при любом сообщении."""
         text = (message or "").lower()
         impacts: Dict[str, float] = {}
-
         delta = 0.0
+        reason = "участие в диалоге"
+
+        # 1. Ключевые слова согласия/несогласия
         for pattern, weight in POSITIVE_PATTERNS:
             if re.search(pattern, text, re.IGNORECASE):
                 delta += weight
+                reason = "согласие"
                 break
         for pattern, weight in NEGATIVE_PATTERNS:
             if re.search(pattern, text, re.IGNORECASE):
                 delta += weight
+                reason = "несогласие"
                 break
 
-        if abs(delta) < 0.05:
-            return None
-
-        # Распределяем влияние на упомянутых участников
+        # 2. Упоминания имён — усиление влияния на упомянутых
         mentioned = [p for p in participants if p != sender and p.lower() in text]
         if not mentioned:
             mentioned = [p for p in participants if p != sender]
 
-        if not mentioned:
+        if mentioned:
+            if abs(delta) >= 0.05:
+                per_agent = delta / len(mentioned) * self.influence_coefficient
+            else:
+                per_agent = PARTICIPATION_DELTA * self.influence_coefficient
+            for p in mentioned:
+                impacts[p] = impacts.get(p, 0) + per_agent
+        else:
+            # 3. Даже без ключевых слов — участие сближает со всеми
+            participation = PARTICIPATION_DELTA * self.influence_coefficient
+            for p in participants:
+                if p != sender:
+                    impacts[p] = participation
+
+        # 4. Контекст: последнее сообщение — кто говорил до этого (ответ на него)
+        if context and isinstance(context, list) and len(context) >= 1:
+            last = str(context[-1]) if context else ""
+            for p in participants:
+                if p != sender and (p in last or p.lower() in last.lower()):
+                    impacts[p] = impacts.get(p, 0) + RESPONSE_TO_PREVIOUS_DELTA * self.influence_coefficient
+                    break
+
+        if not impacts:
             return None
 
-        per_agent = delta / len(mentioned)
-        for p in mentioned:
-            impacts[p] = per_agent * self.influence_coefficient
-
-        reason = "согласие" if delta > 0 else "несогласие"
         logger.debug(
-            "heuristic_analyzer sender=%s delta=%.2f impacts=%s",
-            sender, delta, impacts,
+            "heuristic_analyzer sender=%s impacts=%s reason=%s",
+            sender, impacts, reason,
         )
         return AnalysisResult(
             message_id=message_id or f"{sender}_{datetime.now().timestamp()}",
@@ -94,7 +118,7 @@ class HeuristicRelationshipAnalyzer:
             content=message,
             timestamp=datetime.now(),
             impacts=impacts,
-            sentiment=1.0 if delta > 0 else -1.0,
+            sentiment=1.0 if delta > 0 else (-1.0 if delta < 0 else 0.5),
             emotions={},
             reason=reason,
             metadata={"source": "heuristic", "participants": participants},

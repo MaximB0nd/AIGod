@@ -57,6 +57,14 @@ Authorization: Bearer <token>
 
 ---
 
+### GET /api/test-chromadb
+Проверка работы ChromaDB (память с векторным поиском). **Без авторизации.**
+
+**Ответ:** `{"chromadb_available": bool, "vector_store_init": bool, "error": str?}`  
+При `error` и `np.float_` — подсказка: обновить chromadb или понизить NumPy.
+
+---
+
 ### GET /api/test-db
 Проверка подключения к БД.
 
@@ -188,7 +196,7 @@ Authorization: Bearer <token>
 | description        | string | null         | Описание комнаты                                                         |
 | orchestration_type | string | `"single"`   | `single` \| `circular` \| `narrator` \| `full_context`                    |
 
-**circular / narrator / full_context:** При создании комнаты автоматически добавляется агент «Рассказчик» (видим пользователю). Суммаризатор — ghost, не отображается. circular: агенты по кругу; narrator: Рассказчик ведёт историю; full_context: обсуждение с суммаризацией.
+**narrator:** При создании комнаты автоматически добавляется агент «Рассказчик» (видим пользователю). Его нельзя удалить. **circular:** агенты по кругу + ghost-Суммаризатор. **full_context:** обсуждение с суммаризацией.
 
 **Ответ (201):**
 ```json

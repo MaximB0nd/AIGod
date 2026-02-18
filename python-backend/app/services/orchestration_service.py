@@ -12,7 +12,6 @@ logger = logging.getLogger("aigod.orchestration.service")
 from app.services.agents_orchestration import OrchestrationClient
 from app.services.agents_orchestration.strategies import (
     CircularStrategy,
-    CircularWithNarratorSummarizerStrategy,
     FullContextStrategy,
     NarratorStrategy,
 )
@@ -110,29 +109,20 @@ def create_orchestration_client(room) -> Optional[OrchestrationClient]:
 
     base_adapter = YandexAgentAdapter(yandex_client)
     base_adapter.register_agents_from_room(room.agents)
-    # Рассказчик — реальный агент (room.agents). Суммаризатор — ghost, не виден пользователю.
+    # circular: ghost Суммаризатор для синтеза. narrator: Рассказчик — реальный агент в room.agents.
     if orchestration_type == "circular":
-        if NARRATOR_AGENT_NAME not in agent_names:
-            base_adapter.register_agent(NARRATOR_AGENT_NAME, NARRATOR_PERSONALITY)
         base_adapter.register_agent(SUMMARIZER_AGENT_NAME, SUMMARIZER_PERSONALITY)
+        all_agent_names = agent_names + [SUMMARIZER_AGENT_NAME]
+    else:
+        all_agent_names = agent_names
     adapter = _RelationshipEnhancingAdapter(base_adapter, room)
-
-    from app.constants import NARRATOR_DISPLAY_NAME, SUMMARIZER_DISPLAY_NAME
-    # circular: room.agents содержит Рассказчика (или добавим), + ghost Суммаризатор
-    all_agent_names = (agent_names + [SUMMARIZER_AGENT_NAME]) if orchestration_type == "circular" else agent_names
-    if orchestration_type == "circular" and NARRATOR_AGENT_NAME not in agent_names:
-        all_agent_names = [NARRATOR_AGENT_NAME] + all_agent_names
-    client = OrchestrationClient(all_agent_names if orchestration_type == "circular" else agent_names, adapter, room_id=room.id)
+    client = OrchestrationClient(all_agent_names, adapter, room_id=room.id)
 
     if orchestration_type == "circular":
-        strategy = CircularWithNarratorSummarizerStrategy(
+        # Circular без Рассказчика — только агенты по кругу + Суммаризатор (ghost)
+        strategy = CircularStrategy(
             client.context,
             max_rounds=50,
-            narrator_interval=2,
-            narrator_agent_name=NARRATOR_AGENT_NAME,
-            narrator_display_name=NARRATOR_DISPLAY_NAME,
-            summarizer_agent_name=SUMMARIZER_AGENT_NAME,
-            summarizer_display_name=SUMMARIZER_DISPLAY_NAME,
         )
     elif orchestration_type == "narrator":
         narrator = agent_names[0]
@@ -180,30 +170,21 @@ def create_pipeline_components(room):
     base_adapter = YandexAgentAdapter(yandex_client)
     base_adapter.register_agents_from_room(room.agents)
     if orchestration_type == "circular":
-        if NARRATOR_AGENT_NAME not in agent_names:
-            base_adapter.register_agent(NARRATOR_AGENT_NAME, NARRATOR_PERSONALITY)
         base_adapter.register_agent(SUMMARIZER_AGENT_NAME, SUMMARIZER_PERSONALITY)
     elif orchestration_type == "full_context":
         base_adapter.register_agent(SUMMARIZER_AGENT_NAME, SUMMARIZER_PERSONALITY)
     adapter = _RelationshipEnhancingAdapter(base_adapter, room)
 
     from app.services.agents_orchestration.context import ConversationContext
-    from app.constants import NARRATOR_DISPLAY_NAME, SUMMARIZER_DISPLAY_NAME
 
     all_agent_names = (agent_names + [SUMMARIZER_AGENT_NAME]) if orchestration_type == "circular" else agent_names
-    if orchestration_type == "circular" and NARRATOR_AGENT_NAME not in agent_names:
-        all_agent_names = [NARRATOR_AGENT_NAME] + all_agent_names
     context = ConversationContext(participants=all_agent_names.copy())
+    agents_for_strategy = all_agent_names if orchestration_type == "circular" else agent_names
 
     if orchestration_type == "circular":
-        strategy = CircularWithNarratorSummarizerStrategy(
+        strategy = CircularStrategy(
             context,
             max_rounds=50,
-            narrator_interval=2,
-            narrator_agent_name=NARRATOR_AGENT_NAME,
-            narrator_display_name=NARRATOR_DISPLAY_NAME,
-            summarizer_agent_name=SUMMARIZER_AGENT_NAME,
-            summarizer_display_name=SUMMARIZER_DISPLAY_NAME,
         )
     elif orchestration_type == "narrator":
         strategy = NarratorStrategy(
@@ -225,7 +206,6 @@ def create_pipeline_components(room):
 
     strategy.context = context
     strategy.chat_service = adapter
-    agents_for_strategy = all_agent_names if orchestration_type == "circular" else agent_names
     return {
         "chat_service": adapter,
         "strategy": strategy,

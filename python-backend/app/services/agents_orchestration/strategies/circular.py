@@ -124,11 +124,11 @@ class CircularStrategy(BaseStrategy):
             self.round_count += 1
             if self.include_system_messages:
                 system_msg = Message(
-                    content=f"=== Раунд {self.round_count} завершён ===",
+                    content="=== Обсуждение продолжается ===",
                     type=MessageType.SYSTEM,
                     sender="Система",
                     timestamp=datetime.now(),
-                    metadata={"round_completed": self.round_count}
+                    metadata={"cycle": self.round_count}
                 )
                 return [message, system_msg]
         

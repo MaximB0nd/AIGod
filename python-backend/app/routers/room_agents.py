@@ -59,6 +59,26 @@ def _agent_in_room(room: Room, agent_id: int) -> Agent | None:
     return next((a for a in room.agents if a.id == agent_id), None)
 
 
+def _write_agent_memory_to_sql(
+    db: Session, room_id: int, agent_id: int | None, agent_name: str, content: str, importance: float = 0.6
+) -> None:
+    """Записать воспоминание агента в SQL-таблицу Memory (для API keyMemories)."""
+    if agent_id is None or not content or not content.strip():
+        return
+    try:
+        m = Memory(
+            agent_id=agent_id,
+            room_id=room_id,
+            content=content[:2000] if len(content) > 2000 else content,
+            importance=importance,
+        )
+        db.add(m)
+        db.commit()
+    except Exception as e:
+        logger.warning("_write_agent_memory_to_sql failed: %s", e)
+        db.rollback()
+
+
 def _update_room_services_on_message(
     room_id: int,
     agents: list,
@@ -77,7 +97,7 @@ def _update_room_services_on_message(
         agent_names = [a.name for a in room.agents]
         conv_id = f"room_{room_id}"
 
-        # Память
+        # Память (context_memory)
         mem = get_memory_integration(room)
         if mem:
             try:
@@ -89,7 +109,12 @@ def _update_room_services_on_message(
                     )
                 )
             except Exception as e:
-                print(f"Memory update failed: {e}")
+                logger.warning("Memory update failed: %s", e)
+
+        # SQL Memory — мост для API keyMemories
+        agent_obj = next((a for a in room.agents if a.name == agent_name), None)
+        if agent_obj and agent_response:
+            _write_agent_memory_to_sql(db, room_id, agent_obj.id, agent_name, agent_response, importance=0.6)
 
         # Эмоции
         emo = get_emotional_integration(room)
@@ -216,10 +241,19 @@ def delete_agent(
     room: Room = Depends(get_room_for_user),
     db: Session = Depends(get_db),
 ):
-    """Удалить агента (полностью из БД). Ссылки в сообщениях становятся NULL."""
+    """Удалить агента из комнаты. Ссылки в сообщениях становятся NULL. Нельзя удалить Рассказчика в комнате narrator."""
+    from app.constants import NARRATOR_AGENT_NAME
+
     agent = _agent_in_room(room, agent_id)
     if not agent:
         raise HTTPException(status_code=404, detail="Агент не найден в этой комнате")
+
+    ot = getattr(room, "orchestration_type", None) or "single"
+    if ot == "narrator" and agent.name == NARRATOR_AGENT_NAME:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Нельзя удалить Рассказчика из комнаты со стратегией narrator",
+        )
 
     # Все ссылки в сообщениях на этого агента устанавливаем в NULL
     db.query(Message).filter(Message.agent_id == agent_id).update(
@@ -446,11 +480,13 @@ async def start_orchestration(room: Room = Depends(get_room_for_user)):
 @router.post("/orchestration/stop")
 async def stop_orchestration(room: Room = Depends(get_room_for_user)):
     """
-    Остановить оркестрацию. С pipeline executor нет long-running процесса —
-    этот эндпоинт сохранён для совместимости.
+    Остановить оркестрацию: отменить выполняющийся pipeline и long-running клиент (если есть).
     """
+    from app.services.orchestration_background import cancel_pipeline_task
+
+    cancelled = await cancel_pipeline_task(room.id)
     await registry.stop_room(room.id)
-    return {"status": "stopped", "roomId": room.id}
+    return {"status": "stopped", "roomId": room.id, "pipelineCancelled": cancelled}
 
 
 @router.post("/events", response_model=EventOut)
