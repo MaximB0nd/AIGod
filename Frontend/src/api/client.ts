@@ -1,7 +1,7 @@
 /**
  * API-клиент для бэкенда
  * В dev: относительные URL (/api/...) — через Vite proxy, без CORS
- * В prod: VITE_API_URL или http://5.39.250.179:8000
+ * В prod: VITE_API_URL или http://localhost:8000
  *
  * Все ручки кроме auth требуют Bearer-токен (skipAuth: true только для login/register).
  * При 401 вызывается onUnauthorized (logout и редирект на /login).
@@ -9,7 +9,7 @@
 
 const API_BASE = import.meta.env.DEV
   ? ''
-  : (import.meta.env.VITE_API_URL ?? 'http://5.39.250.179:8000')
+  : (import.meta.env.VITE_API_URL ?? 'http://localhost:8000')
 
 let tokenGetter: (() => string | null) | null = null
 let onUnauthorized: (() => void) | null = null

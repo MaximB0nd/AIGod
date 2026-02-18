@@ -8,7 +8,7 @@
 
 | Параметр       | Значение                        |
 |----------------|----------------------------------|
-| **Базовый URL**| `http://localhost:8000`         |
+| **Базовый URL**| `http://localhost:8000` (или `VITE_API_URL`) |
 | **Swagger UI** | `http://localhost:8000/docs`    |
 | **ReDoc**      | `http://localhost:8000/redoc`   |
 

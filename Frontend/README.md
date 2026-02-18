@@ -97,7 +97,7 @@ cp .env.example .env
 VITE_API_URL=http://localhost:8000
 
 # Для удалённого сервера (пример):
-# VITE_API_URL=http://5.39.250.179:8000
+# VITE_API_URL=http://localhost:8000
 ```
 
 > **Режим разработки:** Vite проксирует запросы `/api/*` на бэкенд, указанный в `VITE_API_URL`. Это обходит CORS и 405 ошибки.
@@ -124,7 +124,7 @@ npm run dev
 
 | Переменная | Описание | По умолчанию |
 |------------|----------|--------------|
-| `VITE_API_URL` | URL бэкенда AIgod API | `http://5.39.250.179:8000` |
+| `VITE_API_URL` | URL бэкенда AIgod API | `http://localhost:8000` |
 
 ### Vite Proxy (режим dev)
 
