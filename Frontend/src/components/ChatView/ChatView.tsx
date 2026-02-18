@@ -33,6 +33,9 @@ export function ChatView({ onAddCharacter, onToggleSidebar, sidebarCollapsed, on
   const scrollRef = useRef<HTMLDivElement>(null)
   const loadMoreSentinelRef = useRef<HTMLDivElement>(null)
   const prevFeedLengthRef = useRef(0)
+  const scrollHeightBeforeLoadRef = useRef(0)
+  /** Пропустить следующий scroll-to-bottom — подгрузка старых сообщений, сохраняем позицию */
+  const skipNextScrollToBottomRef = useRef(false)
   const [showGroupInfo, setShowGroupInfo] = useState(false)
 
   const handleCloseChat = useCallback(() => {
@@ -43,11 +46,25 @@ export function ChatView({ onAddCharacter, onToggleSidebar, sidebarCollapsed, on
     setShowGroupInfo(true)
   }, [])
 
-  // Скролл вниз при загрузке/обновлении ленты. Двойной rAF нужен, чтобы дождаться
-  // завершения layout — иначе scrollHeight может быть 0 и контент не отображается до первой прокрутки.
+  // Перед подгрузкой старых сообщений — помечаем, что следующий scroll-to-bottom пропустить
+  useEffect(() => {
+    if (isLoadMoreLoading) {
+      skipNextScrollToBottomRef.current = true
+      scrollHeightBeforeLoadRef.current = scrollRef.current?.scrollHeight ?? 0
+    } else {
+      // Сброс при завершении (успех или ошибка), чтобы не пропустить scroll при следующем обновлении
+      skipNextScrollToBottomRef.current = false
+    }
+  }, [isLoadMoreLoading])
+
+  // Скролл вниз при загрузке/обновлении ленты. Пропускаем при подгрузке старых сообщений.
   useLayoutEffect(() => {
     const container = scrollRef.current
     if (!container || feed.length === 0) return
+    if (skipNextScrollToBottomRef.current) {
+      skipNextScrollToBottomRef.current = false
+      return
+    }
 
     const scrollToBottom = () => {
       container.scrollTop = container.scrollHeight
@@ -69,13 +86,7 @@ export function ChatView({ onAddCharacter, onToggleSidebar, sidebarCollapsed, on
     }
   }, [feed, isMessagesLoading])
 
-  const scrollHeightBeforeLoadRef = useRef(0)
-  useEffect(() => {
-    if (isLoadMoreLoading) {
-      scrollHeightBeforeLoadRef.current = scrollRef.current?.scrollHeight ?? 0
-    }
-  }, [isLoadMoreLoading])
-
+  // Восстановить позицию скролла после подгрузки старых сообщений
   useEffect(() => {
     if (!isLoadMoreLoading && prevFeedLengthRef.current > 0 && feed.length > prevFeedLengthRef.current) {
       const container = scrollRef.current
