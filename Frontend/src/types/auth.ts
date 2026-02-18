@@ -20,7 +20,8 @@ export interface AuthResponse {
 export interface RegisterRequest {
   email: string
   password: string
-  username: string
+  /** Опционально — по умолчанию берётся часть до @ из email */
+  username?: string
 }
 
 export interface LoginRequest {

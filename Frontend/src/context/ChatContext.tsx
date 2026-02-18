@@ -13,6 +13,7 @@ import {
   type ReactNode,
 } from 'react'
 import type { Chat, Message, Character, FeedItem } from '@/types/chat'
+import { isHiddenSystemMessage, filterVisibleFeed } from '@/utils/feedFilter'
 import type { DefaultAgentSummary } from '@/api/agents'
 import * as chatApi from '@/api/chat'
 import { useRoomStream, type StreamMessage } from '@/hooks/useRoomStream'
@@ -114,7 +115,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       // Применяем результат только если пользователь не переключился на другой чат
       if (activeChatIdRef.current === chatId) {
         setMessages(msgs)
-        setFeed(feedItems.sort(sortFeed))
+        setFeed(filterVisibleFeed(feedItems).sort(sortFeed))
         setCharacters(agents)
         setHasMoreMessages(true)
       }
@@ -167,6 +168,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         const text = p.text ?? ''
         const timestamp = p.timestamp ?? new Date().toISOString()
         if (id) {
+          const sender = p.sender ?? 'agent'
+          if (isHiddenSystemMessage(sender)) return
           const newItem: FeedItem = {
             type: 'message',
             data: {
@@ -176,7 +179,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
               content: text,
               timestamp,
               isRead: true,
-              sender: p.sender ?? 'agent',
+              sender,
             },
           }
           setFeed((prev) => {
@@ -368,7 +371,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         20
       )
       setHasMoreMessages(hasMore)
-      setFeed((prev) => [...items, ...prev].sort(sortFeed))
+      setFeed((prev) => [...filterVisibleFeed(items), ...prev].sort(sortFeed))
     } catch (err) {
       console.error('Failed to load more messages:', err)
       setHasMoreMessages(false)

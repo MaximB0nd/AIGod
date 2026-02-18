@@ -62,6 +62,11 @@ export function useRoomGraph({
     }
 
     ws.onclose = (event) => {
+      if (pingIntervalRef.current) {
+        clearInterval(pingIntervalRef.current)
+        pingIntervalRef.current = null
+      }
+      wsRef.current = null
       if (event.code === 4001) console.error('WebSocket graph: не авторизован')
       if (event.code === 4003) console.error('WebSocket graph: нет доступа к комнате')
     }

@@ -1,6 +1,7 @@
 export * from './auth'
 export * from './client'
 export * from './rooms'
+export * from './usage'
 export * from './agents'
 export * from './messages'
 export * from './feed'

@@ -4,15 +4,23 @@
  */
 
 import { apiFetch } from './client'
-import type { AuthResponse, RegisterRequest, LoginRequest } from '@/types/auth'
+import type { AuthResponse, AuthUser, RegisterRequest, LoginRequest } from '@/types/auth'
 
 /**
  * POST /api/auth/register
+ * username опционально — по умолчанию часть до @ из email
  */
 export async function register(data: RegisterRequest): Promise<AuthResponse> {
+  const body: { email: string; password: string; username?: string } = {
+    email: data.email,
+    password: data.password,
+  }
+  if (data.username != null && data.username.trim() !== '') {
+    body.username = data.username.trim()
+  }
   return apiFetch<AuthResponse>('/api/auth/register', {
     method: 'POST',
-    body: JSON.stringify(data),
+    body: JSON.stringify(body),
     skipAuth: true,
   })
 }

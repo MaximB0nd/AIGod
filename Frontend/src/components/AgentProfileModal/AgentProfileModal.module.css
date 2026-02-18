@@ -328,3 +328,75 @@
   color: var(--tg-muted);
   white-space: nowrap;
 }
+
+.relationshipRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.editBtn {
+  padding: 4px 8px;
+  font-size: 0.875rem;
+  background: transparent;
+  border: none;
+  color: var(--tg-muted);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: color 0.15s, background 0.15s;
+}
+
+.editBtn:hover {
+  color: var(--tg-text);
+  background: var(--tg-hover);
+}
+
+.relationshipEdit {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.sympathySlider {
+  width: 100%;
+  accent-color: var(--tg-button);
+}
+
+.relationshipEditActions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.editSaveBtn,
+.editCancelBtn {
+  padding: 6px 12px;
+  font-size: 0.8125rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  border: none;
+}
+
+.editSaveBtn {
+  background: var(--tg-button);
+  color: var(--tg-button-text);
+}
+
+.editSaveBtn:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.editSaveBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.editCancelBtn {
+  background: transparent;
+  color: var(--tg-muted);
+}
+
+.editCancelBtn:hover:not(:disabled) {
+  color: var(--tg-text);
+}
