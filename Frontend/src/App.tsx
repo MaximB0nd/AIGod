@@ -1,11 +1,15 @@
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
-import { ChatsPage, AuthPage } from '@/pages'
+import { ChatsPage, AuthPage, OnboardingPage } from '@/pages'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth()
+  const location = useLocation()
+  const fromRegistration = (location.state as { fromRegistration?: boolean } | null)?.fromRegistration
+
   if (isLoading) return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>Загрузка...</div>
   if (!isAuthenticated) return <Navigate to="/login" replace />
+  if (fromRegistration === true) return <OnboardingPage />
   return <>{children}</>
 }
 

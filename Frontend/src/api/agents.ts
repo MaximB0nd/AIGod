@@ -128,8 +128,11 @@ export async function deleteAgent(roomId: string, agentId: string): Promise<void
 export interface DefaultAgentSummary {
   id: number
   name: string
-  personality_preview: string
-  avatar_url: string | null
+  /** Может быть personality_preview или character в зависимости от бэкенда */
+  personality_preview?: string
+  character?: string
+  avatar_url?: string | null
+  avatar?: string | null
 }
 
 /** Полный шаблон для создания агента — GET /api/default-agents/{id} */
@@ -137,17 +140,21 @@ export interface DefaultAgentTemplate {
   id: number
   name: string
   character: string
-  avatar: string | null
+  avatar?: string | null
+  avatar_url?: string | null
 }
 
 /**
  * GET /api/default-agents — список шаблонов для создания агента. Без авторизации.
+ * Поддерживает ответ как массив, так и { items } / { defaultAgents }.
  */
 export async function fetchDefaultAgents(): Promise<DefaultAgentSummary[]> {
-  const list = await apiFetch<DefaultAgentSummary[]>(`/api/default-agents`, {
-    skipAuth: true,
-  })
-  return Array.isArray(list) ? list : []
+  const res = await apiFetch<DefaultAgentSummary[] | { items?: DefaultAgentSummary[]; defaultAgents?: DefaultAgentSummary[] }>(
+    `/api/default-agents`,
+    { skipAuth: true }
+  )
+  if (Array.isArray(res)) return res
+  return res?.items ?? res?.defaultAgents ?? []
 }
 
 /**

@@ -13,7 +13,8 @@ export interface AuthResponse {
   email: string
   username: string
   token: string
-  refreshToken: string
+  /** Не возвращается в новом контракте AIgod */
+  refreshToken?: string
 }
 
 export interface RegisterRequest {

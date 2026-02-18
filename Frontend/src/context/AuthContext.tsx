@@ -21,7 +21,7 @@ const STORAGE_KEY = STORAGE_KEYS.AUTH
 interface StoredAuth {
   user: AuthUser
   token: string
-  refreshToken: string
+  refreshToken?: string
 }
 
 interface AuthContextValue {
@@ -52,7 +52,7 @@ function saveAuth(data: AuthResponse): void {
   const stored: StoredAuth = {
     user: { id: data.id, email: data.email, username: data.username },
     token: data.token,
-    refreshToken: data.refreshToken,
+    ...(data.refreshToken != null && { refreshToken: data.refreshToken }),
   }
   localStorage.setItem(STORAGE_KEY, JSON.stringify(stored))
 }

@@ -54,7 +54,7 @@ export function AuthPage() {
       setIsSubmitting(true)
       try {
         await register({ email: regEmail, password: regPassword, username: regUsername })
-        navigate('/', { replace: true })
+        navigate('/', { replace: true, state: { fromRegistration: true } })
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Ошибка регистрации')
       } finally {

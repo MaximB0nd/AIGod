@@ -224,10 +224,11 @@ export async function addCharacterToChat(
   defaultAgentId: number
 ): Promise<void> {
   const template = await agentsApi.fetchDefaultAgent(defaultAgentId)
+  const avatar = template.avatar ?? template.avatar_url
   await agentsApi.createAgent(chatId, {
     name: template.name,
     character: template.character,
-    ...(template.avatar && { avatar: template.avatar }),
+    ...(avatar && { avatar }),
   })
 }
 
