@@ -9,7 +9,6 @@ import * as agentsApi from './agents'
 import * as eventsApi from './events'
 import * as feedApi from './feed'
 import * as messagesApi from './messages'
-import { CHARACTER_PRESETS } from '@/constants/characterPresets'
 
 function roomToChat(room: Awaited<ReturnType<typeof roomsApi.fetchRoom>>, agentIds: string[]): Chat | null {
   if (!room) return null
@@ -31,8 +30,12 @@ function agentToCharacter(a: { id: string; name: string; avatar?: string; mood?:
   }
 }
 
-export function getCharacterPresets() {
-  return CHARACTER_PRESETS
+export async function fetchDefaultAgents() {
+  return agentsApi.fetchDefaultAgents()
+}
+
+export async function fetchDefaultAgent(id: number) {
+  return agentsApi.fetchDefaultAgent(id)
 }
 
 export async function fetchChats(): Promise<Chat[]> {
@@ -213,16 +216,18 @@ export async function createChat(data: {
   }
 }
 
+/**
+ * Добавить агента в комнату по шаблону default-agent (GET /api/default-agents/{id})
+ */
 export async function addCharacterToChat(
   chatId: string,
-  presetId: string
+  defaultAgentId: number
 ): Promise<void> {
-  const preset = CHARACTER_PRESETS.find((p) => p.id === presetId)
-  if (!preset) return
-
+  const template = await agentsApi.fetchDefaultAgent(defaultAgentId)
   await agentsApi.createAgent(chatId, {
-    name: preset.name,
-    character: preset.character,
+    name: template.name,
+    character: template.character,
+    ...(template.avatar && { avatar: template.avatar }),
   })
 }
 

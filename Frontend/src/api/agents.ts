@@ -1,22 +1,40 @@
 /**
- * API агентов и отношений
- * @see API_DOCS.md v1.0.0
+ * API агентов и графа отношений
+ * GET /api/rooms/{roomId}/agents, agents/{id}, relationships
+ * PATCH /api/rooms/{roomId}/relationships
+ * @see API_DOCS.md, WEBSOCKET_CLIENT.md v1.0.0
  */
 
 import { apiFetch } from './client'
-import type { Agent, Memory, Plan, RelationshipsResponse } from '@/types/agent'
+import type { AgentSummary, Agent, RelationshipsResponse } from '@/types/agent'
+import type { Memory, Plan } from '@/types/agent'
 
 export type { RelationshipsResponse }
 
-export interface AgentSummary {
-  id: string
-  name: string
-  avatar?: string
-  mood?: { mood: string; level: number; icon?: string; color?: string }
-}
-
 export interface AgentsResponse {
   agents: AgentSummary[]
+}
+
+export interface MemoriesResponse {
+  memories: Memory[]
+  total: number
+}
+
+export interface PlansResponse {
+  plans: Plan[]
+}
+
+export interface CreateAgentRequest {
+  name: string
+  character?: string
+  avatar?: string
+  agentId?: number
+}
+
+export interface UpdateRelationshipRequest {
+  agent1Id: number
+  agent2Id: number
+  sympathyLevel: number
 }
 
 /**
@@ -27,15 +45,65 @@ export async function fetchAgents(roomId: string): Promise<AgentSummary[]> {
   return res.agents ?? []
 }
 
-export interface CreateAgentRequest {
-  name: string
-  character?: string
-  avatar?: string
-  agentId?: number
+/**
+ * GET /api/rooms/{roomId}/agents/{agentId} — полная информация по агенту
+ */
+export async function fetchAgent(roomId: string, agentId: string): Promise<Agent> {
+  return apiFetch<Agent>(`/api/rooms/${roomId}/agents/${agentId}`)
 }
 
 /**
- * POST /api/rooms/{roomId}/agents — создать или добавить агента
+ * GET /api/rooms/{roomId}/agents/{agentId}/memories — воспоминания агента
+ */
+export async function fetchAgentMemories(
+  roomId: string,
+  agentId: string,
+  params?: { limit?: number; offset?: number }
+): Promise<MemoriesResponse> {
+  const search = new URLSearchParams()
+  if (params?.limit != null) search.set('limit', String(params.limit))
+  if (params?.offset != null) search.set('offset', String(params.offset))
+  const qs = search.toString()
+  const url = `/api/rooms/${roomId}/agents/${agentId}/memories${qs ? `?${qs}` : ''}`
+  return apiFetch<MemoriesResponse>(url)
+}
+
+/**
+ * GET /api/rooms/{roomId}/agents/{agentId}/plans — планы агента
+ */
+export async function fetchAgentPlans(
+  roomId: string,
+  agentId: string
+): Promise<PlansResponse> {
+  return apiFetch<PlansResponse>(`/api/rooms/${roomId}/agents/${agentId}/plans`)
+}
+
+/**
+ * GET /api/rooms/{roomId}/relationships — граф отношений (nodes, edges)
+ */
+export async function fetchRelationships(roomId: string): Promise<RelationshipsResponse> {
+  return apiFetch<RelationshipsResponse>(`/api/rooms/${roomId}/relationships`)
+}
+
+/**
+ * PATCH /api/rooms/{roomId}/relationships — обновить ребро графа
+ * Рассылает edge_update в WebSocket графа
+ */
+export async function updateRelationship(
+  roomId: string,
+  data: UpdateRelationshipRequest
+): Promise<{ from: string; to: string; sympathyLevel: number }> {
+  return apiFetch<{ from: string; to: string; sympathyLevel: number }>(
+    `/api/rooms/${roomId}/relationships`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }
+  )
+}
+
+/**
+ * POST /api/rooms/{roomId}/agents — создать агента в комнате
  */
 export async function createAgent(
   roomId: string,
@@ -50,61 +118,43 @@ export async function createAgent(
 /**
  * DELETE /api/rooms/{roomId}/agents/{agentId} — удалить агента из комнаты
  */
-export async function deleteAgent(
-  roomId: string,
-  agentId: string
-): Promise<void> {
-  return apiFetch(`/api/rooms/${roomId}/agents/${agentId}`, {
+export async function deleteAgent(roomId: string, agentId: string): Promise<void> {
+  await apiFetch(`/api/rooms/${roomId}/agents/${agentId}`, {
     method: 'DELETE',
   })
 }
 
-/**
- * GET /api/rooms/{roomId}/agents/{agentId} — полная информация по агенту
- */
-export async function fetchAgent(roomId: string, agentId: string): Promise<Agent> {
-  return apiFetch<Agent>(`/api/rooms/${roomId}/agents/${agentId}`)
+/** Шаблон дефолтного агента (список) — GET /api/default-agents */
+export interface DefaultAgentSummary {
+  id: number
+  name: string
+  personality_preview: string
+  avatar_url: string | null
 }
 
-export interface MemoriesResponse {
-  memories: Memory[]
-  total: number
-}
-
-/**
- * GET /api/rooms/{roomId}/agents/{agentId}/memories — воспоминания агента
- */
-export async function fetchAgentMemories(
-  roomId: string,
-  agentId: string,
-  params?: { limit?: number; offset?: number }
-): Promise<MemoriesResponse> {
-  const search = new URLSearchParams()
-  if (params?.limit != null) search.set('limit', String(params.limit))
-  if (params?.offset != null) search.set('offset', String(params.offset))
-  const q = search.toString() ? `?${search}` : ''
-  return apiFetch<MemoriesResponse>(`/api/rooms/${roomId}/agents/${agentId}/memories${q}`)
-}
-
-export interface PlansResponse {
-  plans: Plan[]
+/** Полный шаблон для создания агента — GET /api/default-agents/{id} */
+export interface DefaultAgentTemplate {
+  id: number
+  name: string
+  character: string
+  avatar: string | null
 }
 
 /**
- * GET /api/rooms/{roomId}/agents/{agentId}/plans — планы агента
+ * GET /api/default-agents — список шаблонов для создания агента. Без авторизации.
  */
-export async function fetchAgentPlans(
-  roomId: string,
-  agentId: string
-): Promise<PlansResponse> {
-  return apiFetch<PlansResponse>(`/api/rooms/${roomId}/agents/${agentId}/plans`)
+export async function fetchDefaultAgents(): Promise<DefaultAgentSummary[]> {
+  const list = await apiFetch<DefaultAgentSummary[]>(`/api/default-agents`, {
+    skipAuth: true,
+  })
+  return Array.isArray(list) ? list : []
 }
 
 /**
- * GET /api/rooms/{roomId}/relationships — граф отношений
+ * GET /api/default-agents/{id} — полный шаблон для предзаполнения формы. Без авторизации.
  */
-export async function fetchRelationships(
-  roomId: string
-): Promise<RelationshipsResponse> {
-  return apiFetch<RelationshipsResponse>(`/api/rooms/${roomId}/relationships`)
+export async function fetchDefaultAgent(id: number): Promise<DefaultAgentTemplate> {
+  return apiFetch<DefaultAgentTemplate>(`/api/default-agents/${id}`, {
+    skipAuth: true,
+  })
 }

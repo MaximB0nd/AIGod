@@ -12,14 +12,15 @@ import {
   type ReactNode,
 } from 'react'
 import type { Chat, Message, Character, FeedItem } from '@/types/chat'
-import type { CharacterPreset } from '@/constants/characterPresets'
+import type { DefaultAgentSummary } from '@/api/agents'
 import * as chatApi from '@/api/chat'
 import { useRoomStream, type StreamMessage } from '@/hooks/useRoomStream'
 
 interface ChatContextValue {
   chats: Chat[]
   characters: Character[]
-  characterPresets: CharacterPreset[]
+  /** Шаблоны агентов с бэкенда (GET /api/default-agents) */
+  defaultAgents: DefaultAgentSummary[]
   activeChat: Chat | null
   messages: Message[]
   feed: FeedItem[]
@@ -31,7 +32,7 @@ interface ChatContextValue {
   isLoadMoreLoading: boolean
   selectChat: (chat: Chat | null) => void
   createChat: (data: { title: string; description?: string; orchestration_type?: 'single' | 'circular' | 'narrator' | 'full_context' }) => Promise<Chat>
-  addCharacterToChat: (chatId: string, presetId: string) => Promise<void>
+  addCharacterToChat: (chatId: string, defaultAgentId: number) => Promise<void>
   createAgentToChat: (chatId: string, data: { name: string; character: string; avatar?: string }) => Promise<void>
   removeCharacterFromChat: (chatId: string, agentId: string) => Promise<void>
   sendMessage: (chatId: string, agentId: string, content: string) => Promise<void>
@@ -56,6 +57,7 @@ function sortFeed(a: FeedItem, b: FeedItem) {
 export function ChatProvider({ children }: { children: ReactNode }) {
   const [chats, setChats] = useState<Chat[]>([])
   const [characters, setCharacters] = useState<Character[]>([])
+  const [defaultAgents, setDefaultAgents] = useState<DefaultAgentSummary[]>([])
   const [activeChat, setActiveChat] = useState<Chat | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
   const [feed, setFeed] = useState<FeedItem[]>([])
@@ -64,7 +66,9 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const [isMessagesLoading, setIsMessagesLoading] = useState(false)
   const [isLoadMoreLoading, setIsLoadMoreLoading] = useState(false)
 
-  const characterPresets = chatApi.getCharacterPresets()
+  useEffect(() => {
+    chatApi.fetchDefaultAgents().then(setDefaultAgents).catch(() => setDefaultAgents([]))
+  }, [])
 
   const loadChats = useCallback(async () => {
     setIsLoading(true)
@@ -215,8 +219,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const addCharacterToChat = useCallback(
-    async (chatId: string, presetId: string) => {
-      await chatApi.addCharacterToChat(chatId, presetId)
+    async (chatId: string, defaultAgentId: number) => {
+      await chatApi.addCharacterToChat(chatId, defaultAgentId)
       const chatsData = await chatApi.fetchChats()
       setChats(chatsData)
       if (activeChat?.id === chatId) {
@@ -358,7 +362,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const value: ChatContextValue = {
     chats,
     characters,
-    characterPresets,
+    defaultAgents,
     activeChat,
     messages,
     feed,

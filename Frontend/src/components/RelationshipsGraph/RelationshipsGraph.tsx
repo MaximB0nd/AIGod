@@ -109,7 +109,7 @@ export function RelationshipsGraph({ roomId, onPanelOpen, onOrchestrationToggle 
   useRoomGraph({
     roomId,
     onMessage: handleEdgeUpdate,
-    enabled: !!roomId && !!onPanelOpen,
+    enabled: !!roomId,
   })
 
   useEffect(() => {

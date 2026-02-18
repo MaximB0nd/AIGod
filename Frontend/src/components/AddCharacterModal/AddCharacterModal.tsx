@@ -1,13 +1,14 @@
 /**
  * Модалка добавления агента в комнату
  * POST /api/rooms/{roomId}/agents — name, character, avatar (опционально)
- * @see docs/BACKEND_API_REQUIREMENTS.md § 3.3
+ * Шаблоны: GET /api/default-agents, GET /api/default-agents/{id}
  */
 
 import { useCallback, useState } from 'react'
 import type { Chat } from '@/types/chat'
 import { useChat } from '@/context/ChatContext'
 import { ApiError } from '@/api/client'
+import { fetchDefaultAgent } from '@/api/chat'
 import styles from './AddCharacterModal.module.css'
 
 interface AddCharacterModalProps {
@@ -17,23 +18,34 @@ interface AddCharacterModalProps {
 }
 
 export function AddCharacterModal({ isOpen, chat, onClose }: AddCharacterModalProps) {
-  const { characterPresets, createAgentToChat } = useChat()
+  const { defaultAgents, createAgentToChat } = useChat()
   const [name, setName] = useState('')
   const [character, setCharacter] = useState('')
   const [avatar, setAvatar] = useState('')
   const [isCreating, setIsCreating] = useState(false)
+  const [isLoadingPreset, setIsLoadingPreset] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const handleApplyPreset = useCallback(
-    (presetId: string) => {
-      const preset = characterPresets.find((p) => p.id === presetId)
-      if (preset) {
-        setName(preset.name)
-        setCharacter(preset.character)
-      }
-    },
-    [characterPresets]
-  )
+  const handleApplyPreset = useCallback(async (defaultAgentId: number) => {
+    setIsLoadingPreset(true)
+    setError(null)
+    try {
+      const template = await fetchDefaultAgent(defaultAgentId)
+      setName(template.name)
+      setCharacter(template.character)
+      setAvatar(template.avatar ?? '')
+    } catch (err) {
+      setError(
+        err instanceof ApiError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : 'Не удалось загрузить шаблон'
+      )
+    } finally {
+      setIsLoadingPreset(false)
+    }
+  }, [])
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
@@ -91,18 +103,19 @@ export function AddCharacterModal({ isOpen, chat, onClose }: AddCharacterModalPr
         <form onSubmit={handleSubmit} className={styles.form}>
           {error && <p className={styles.error}>{error}</p>}
 
-          {characterPresets.length > 0 && (
+          {defaultAgents.length > 0 && (
             <div className={styles.presetsBlock}>
               <label className={styles.label}>Быстрый выбор</label>
               <div className={styles.presetChips}>
-                {characterPresets.map((preset) => (
+                {defaultAgents.map((agent) => (
                   <button
-                    key={preset.id}
+                    key={agent.id}
                     type="button"
                     className={styles.presetChip}
-                    onClick={() => handleApplyPreset(preset.id)}
+                    onClick={() => handleApplyPreset(agent.id)}
+                    disabled={isLoadingPreset}
                   >
-                    {preset.name}
+                    {agent.name}
                   </button>
                 ))}
               </div>
