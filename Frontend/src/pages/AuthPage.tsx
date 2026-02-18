@@ -72,8 +72,10 @@ export function AuthPage() {
   return (
     <div className={styles.page}>
       <div className={styles.card}>
-        <h1 className={styles.title}>Виртуальный мир</h1>
-        <p className={styles.subtitle}>Симулятор живых существ</p>
+        <div className={styles.header}>
+          <img src="/logo.png" alt="AmICreator" className={styles.logo} />
+          <h1 className={styles.title}>Симулятор создателя</h1>
+        </div>
 
         <div className={styles.tabs}>
           <button

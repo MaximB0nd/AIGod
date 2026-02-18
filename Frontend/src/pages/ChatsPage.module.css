@@ -61,7 +61,7 @@
 
 .resizeHandle:hover::after,
 .resizeHandle:active::after {
-  background: var(--tg-accent);
+  background: var(--color-accent-orange);
 }
 
 .mainWrapper {

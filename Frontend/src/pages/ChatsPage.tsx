@@ -13,8 +13,8 @@ import { RelationshipsGraph } from '@/components/RelationshipsGraph'
 import { STORAGE_KEYS } from '@/utils/storage'
 import styles from './ChatsPage.module.css'
 
-/* Минимум: «Комнаты» + кнопка «+» всегда видны, ячейки списка не меняют размер */
-const SIDEBAR_MIN_WIDTH = 240
+/* Минимум: логотип + кнопка «+» + компактный выход */
+const SIDEBAR_MIN_WIDTH = 200
 const SIDEBAR_MAX_WIDTH = 600
 const SIDEBAR_DEFAULT_WIDTH = 360
 const STORAGE_KEY = STORAGE_KEYS.SIDEBAR_WIDTH

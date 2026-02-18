@@ -13,9 +13,26 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 20px 16px 20px;
+  padding: 16px 20px;
   background: var(--tg-sidebar-bg);
   border-bottom: 1px solid var(--tg-border);
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.headerLeft {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  flex: 1;
+  gap: 12px;
+}
+
+.headerLogo {
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+  flex-shrink: 0;
 }
 
 .title {
@@ -23,12 +40,16 @@
   font-size: 1.25rem;
   font-weight: 600;
   color: var(--tg-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .headerActions {
   display: flex;
   align-items: center;
   gap: 10px;
+  flex-shrink: 0;
 }
 
 .userName {
@@ -65,7 +86,7 @@
   font-size: 1.5rem;
   font-weight: 300;
   color: #fff;
-  background: var(--tg-accent);
+  background: var(--color-accent-orange);
   border: none;
   border-radius: var(--radius-card);
   cursor: pointer;
@@ -74,7 +95,7 @@
 }
 
 .createBtn:hover {
-  background: var(--color-accent-hover);
+  background: var(--color-accent-orange-hover);
   box-shadow: var(--shadow-bento);
   transform: scale(1.02);
 }
@@ -85,6 +106,7 @@
   padding: 8px;
   overflow-y: auto;
   flex: 1;
+  min-height: 0;
 }
 
 .item {
@@ -140,7 +162,7 @@
   font-size: 0.9375rem;
   font-weight: 600;
   color: #fff;
-  background: linear-gradient(135deg, var(--tg-accent), #00a8e8);
+  background: linear-gradient(135deg, var(--tg-accent), var(--color-accent-orange));
 }
 
 .badge {
@@ -156,7 +178,7 @@
   font-size: 0.75rem;
   font-weight: 600;
   color: #fff;
-  background: var(--tg-accent);
+  background: var(--color-accent-orange);
   border-radius: 10px;
 }
 
@@ -194,8 +216,8 @@
   font-size: 0.625rem;
   font-weight: 500;
   padding: 2px 6px;
-  background: var(--tg-active);
-  color: var(--tg-accent);
+  background: rgba(253, 89, 23, 0.12);
+  color: var(--color-accent-orange);
   border-radius: 6px;
   text-transform: uppercase;
   letter-spacing: 0.03em;
@@ -255,14 +277,64 @@
   color: #dc3545;
 }
 
-/* Сворачивание при сужении: скрываем userName и текст «Выход» */
-@container sidebar (max-width: 300px) {
+/* Адаптивный header при сужении панели */
+@container sidebar (max-width: 320px) {
   .userName {
     display: none;
   }
 }
 
+@container sidebar (max-width: 280px) {
+  .title {
+    display: none;
+  }
+
+  .headerLeft {
+    flex: 0;
+  }
+
+  .headerLogo {
+    width: 48px;
+    height: 48px;
+  }
+
+  .item {
+    padding: 12px 14px;
+  }
+
+  .avatar,
+  .avatarPlaceholder {
+    width: 44px;
+    height: 44px;
+  }
+
+  .preview {
+    font-size: 0.8125rem;
+    max-height: 2.4em;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+}
+
 @container sidebar (max-width: 260px) {
+  .header {
+    padding: 12px 14px;
+    gap: 6px;
+  }
+
+  .headerLogo {
+    width: 40px;
+    height: 40px;
+  }
+
+  .createBtn {
+    width: 40px;
+    height: 40px;
+    font-size: 1.25rem;
+  }
+
   .logoutBtnText {
     display: none;
   }
@@ -270,11 +342,50 @@
   .logoutBtn {
     padding: 8px 10px;
     font-size: 0;
+    min-width: 36px;
   }
 
   .logoutBtn::before {
     content: '←';
     font-size: 0.875rem;
     color: inherit;
+  }
+
+  .item {
+    padding: 10px 12px;
+    gap: 10px;
+  }
+
+  .avatar,
+  .avatarPlaceholder {
+    width: 40px;
+    height: 40px;
+  }
+
+  .name {
+    font-size: 0.875rem;
+  }
+
+  .preview {
+    display: none;
+  }
+
+  .orchestrationBadge {
+    display: none;
+  }
+
+  .time {
+    font-size: 0.6875rem;
+  }
+
+  .badge {
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    font-size: 0.625rem;
+  }
+
+  .list {
+    padding: 6px;
   }
 }

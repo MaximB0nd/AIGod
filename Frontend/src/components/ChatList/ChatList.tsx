@@ -21,7 +21,10 @@ export function ChatList({ onCreateChat, onDeleteChat, onAddCharacter }: ChatLis
   return (
     <aside className={styles.sidebar}>
       <div className={styles.header}>
-        <h1 className={styles.title}>Комнаты</h1>
+        <div className={styles.headerLeft}>
+          <img src="/logo.png" alt="" className={styles.headerLogo} />
+          <h1 className={styles.title}>Комнаты</h1>
+        </div>
         <div className={styles.headerActions}>
           <span className={styles.userName} title={user?.email}>{user?.username ?? '—'}</span>
           <button

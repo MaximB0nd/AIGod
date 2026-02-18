@@ -16,18 +16,26 @@
   padding: 40px;
 }
 
+.header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 28px;
+}
+
+.logo {
+  width: 192px;
+  height: 192px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
 .title {
-  margin: 0 0 4px;
+  margin: 0;
   font-size: 1.5rem;
   font-weight: 700;
   color: var(--tg-text);
-  text-align: center;
-}
-
-.subtitle {
-  margin: 0 0 28px;
-  font-size: 0.9375rem;
-  color: var(--tg-muted);
   text-align: center;
 }
 
@@ -56,15 +64,16 @@
 }
 
 .tabActive {
-  background: var(--tg-accent);
-  border-color: var(--tg-accent);
+  background: var(--color-accent-orange);
+  border-color: var(--color-accent-orange);
   color: #fff;
 }
 
 .tabActive:hover {
-  background: var(--tg-accent);
+  background: var(--color-accent-orange-hover);
+  border-color: var(--color-accent-orange-hover);
   color: #fff;
-  opacity: 0.95;
+  opacity: 1;
 }
 
 .error {
@@ -102,7 +111,7 @@
 }
 
 .input:focus {
-  border-color: var(--tg-accent);
+  border-color: var(--color-accent-orange);
 }
 
 .submitBtn {
@@ -110,16 +119,17 @@
   padding: 14px 24px;
   font-size: 1rem;
   font-weight: 600;
-  background: var(--tg-accent);
+  background: var(--color-accent-orange);
   border: none;
   border-radius: var(--radius-card);
   cursor: pointer;
   color: #fff;
-  transition: opacity 0.15s;
+  transition: opacity 0.15s, background 0.15s;
 }
 
 .submitBtn:hover:not(:disabled) {
-  opacity: 0.9;
+  background: var(--color-accent-orange-hover);
+  opacity: 1;
 }
 
 .submitBtn:disabled {
