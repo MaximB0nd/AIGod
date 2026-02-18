@@ -2,15 +2,17 @@
 Единый orchestration pipeline executor.
 
 Каждый запрос ОБЯЗАТЕЛЬНО проходит фиксированные стадии:
-NEW_TASK → RETRIEVE_MEMORY → PLAN → DISCUSS → SYNTHESIZE → STORE_MEMORY → UPDATE_GRAPH → DONE
+NEW_TASK → RETRIEVE_MEMORY → PLAN → DISCUSS → SYNTHESIZE → STORE_MEMORY → FACT_EXTRACTION → UPDATE_GRAPH → DONE
 
-Без этого модули (память, стратегии, граф) — библиотеки, а не шаги пайплайна.
+SolutionSynthesizer — FINAL DECISION MAKER, ВСЕГДА после discussion.
 """
 import asyncio
 import logging
 from typing import Callable, Awaitable, Optional, Any
 
 from .stages import PipelineStage, TaskState
+from .solution_synthesizer import SolutionSynthesizer
+from .fact_extractor import FactExtractor
 
 logger = logging.getLogger("aigod.orchestration.executor")
 
@@ -64,7 +66,7 @@ class PipelineExecutor:
             await self._stage_discuss(state)
             logger.info("pipeline_executor stage=DISCUSS done room_id=%s msgs=%d", state.room_id, len(state.discussion_messages))
 
-            # 4. SYNTHESIZE — обязательно (финальное резюме)
+            # 4. SYNTHESIZE — обязательно (SolutionSynthesizer: FINAL DECISION MAKER)
             state.transition_to(PipelineStage.SYNTHESIZE)
             await self._stage_synthesize(state)
             logger.info("pipeline_executor stage=SYNTHESIZE done room_id=%s", state.room_id)
@@ -74,7 +76,12 @@ class PipelineExecutor:
             await self._stage_store_memory(state)
             logger.info("pipeline_executor stage=STORE_MEMORY done room_id=%s", state.room_id)
 
-            # 6. UPDATE_GRAPH — обязательно
+            # 6. FACT_EXTRACTION — обязательно (триплеты для графа)
+            state.transition_to(PipelineStage.FACT_EXTRACTION)
+            await self._stage_extract_facts(state)
+            logger.info("pipeline_executor stage=FACT_EXTRACTION done room_id=%s facts=%d", state.room_id, len(state.extracted_facts))
+
+            # 7. UPDATE_GRAPH — обязательно (включая facts)
             state.transition_to(PipelineStage.UPDATE_GRAPH)
             await self._stage_update_graph(state)
             logger.info("pipeline_executor stage=UPDATE_GRAPH done room_id=%s", state.room_id)
@@ -148,48 +155,10 @@ class PipelineExecutor:
             await asyncio.sleep(0.3)
 
     async def _stage_synthesize(self, state: TaskState) -> None:
-        """Обязательный этап: синтез финального ответа из обсуждения."""
-        if not state.discussion_messages:
-            state.synthesized_answer = state.user_message
-            return
-
-        discussion_text = "\n".join([
-            f"{m.sender}: {m.content}"
-            for m in state.discussion_messages
-            if hasattr(m, "sender") and hasattr(m, "content")
-        ])
-
-        if not discussion_text.strip():
-            state.synthesized_answer = state.discussion_messages[-1].content if state.discussion_messages else ""
-            return
-
-        # LLM-синтез: один агент (последний или summary_agent) формулирует итог
-        synth_agent = self.agents[-1] if self.agents else None
-        if not synth_agent:
-            state.synthesized_answer = discussion_text[:500]
-            return
-
-        prompt = f"""
-Ты подводишь итог обсуждения по запросу пользователя.
-
-Запрос пользователя: {state.user_message}
-
-Обсуждение агентов:
-{discussion_text}
-
-Сформулируй краткий и чёткий итоговый ответ пользователю (2-4 предложения).
-Учитывай все мнения из обсуждения. Отвечай от лица системы/модератора.
-"""
-        try:
-            state.synthesized_answer = await self.chat_service(
-                synth_agent,
-                "pipeline_synthesize",
-                prompt,
-                context=self.strategy.context,
-            )
-        except Exception as e:
-            logger.warning("_stage_synthesize LLM failed: %s", e)
-            state.synthesized_answer = state.discussion_messages[-1].content if state.discussion_messages else ""
+        """Обязательный этап: SolutionSynthesizer — FINAL DECISION MAKER. ВСЕГДА выполняется."""
+        synth_agent = self.agents[-1] if self.agents else "System"
+        synthesizer = SolutionSynthesizer(chat_service=self.chat_service, agent_name=synth_agent)
+        state.synthesized_answer = await synthesizer.synthesize(state)
 
         if state.synthesized_answer and self.on_message:
             from app.services.agents_orchestration.message import Message
@@ -200,7 +169,7 @@ class PipelineExecutor:
                 type=MessageType.SUMMARIZED,
                 sender="Система",
                 timestamp=datetime.now(),
-                metadata={"pipeline": "synthesize"},
+                metadata={"pipeline": "synthesize", "authority": "final_decision"},
             )
             await self.on_message(synth_msg)
 
@@ -223,12 +192,19 @@ class PipelineExecutor:
         except Exception as e:
             logger.warning("_stage_store_memory: %s", e)
 
+    async def _stage_extract_facts(self, state: TaskState) -> None:
+        """Обязательный этап: извлечь структурированные факты (триплеты) для графа."""
+        extractor = FactExtractor(chat_service=self.chat_service)
+        state.extracted_facts = await extractor.extract(state)
+
     async def _stage_update_graph(self, state: TaskState) -> None:
-        """Обязательный этап: обновить граф отношений."""
+        """Обязательный этап: обновить граф (из facts + heuristic по сообщениям)."""
         try:
             from app.services.relationship_model_service import get_relationship_manager
 
             manager = get_relationship_manager(self.room)
+            if state.extracted_facts:
+                manager.update_from_facts(state.extracted_facts, state.agent_names)
             for msg in state.discussion_messages:
                 if hasattr(msg, "sender") and hasattr(msg, "content"):
                     await manager.process_message(

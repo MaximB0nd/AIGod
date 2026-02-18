@@ -19,6 +19,7 @@ class PipelineStage(Enum):
     DISCUSS = auto()
     SYNTHESIZE = auto()
     STORE_MEMORY = auto()
+    FACT_EXTRACTION = auto()
     UPDATE_GRAPH = auto()
     DONE = auto()
 
@@ -47,6 +48,7 @@ class TaskState:
     discussion_messages: List[Any] = field(default_factory=list)
     synthesized_answer: Optional[str] = None
     memory_stored: bool = False
+    extracted_facts: List[Any] = field(default_factory=list)
     graph_updated: bool = False
 
     # Метаданные

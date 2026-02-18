@@ -69,6 +69,30 @@ class RelationshipManager:
         
         return change
     
+    def update_from_facts(self, facts: List[Any], participants: List[str]) -> int:
+        """
+        Обновить граф из структурированных фактов (триплетов).
+
+        Факты: subject, predicate, object.
+        Участники: список имён агентов для фильтрации.
+        """
+        count = 0
+        for f in facts:
+            subj = getattr(f, "subject", None) or (f.get("subject", "") if isinstance(f, dict) else "") or ""
+            pred = getattr(f, "predicate", None) or (f.get("predicate", "") if isinstance(f, dict) else "") or ""
+            obj_val = getattr(f, "obj", None) or getattr(f, "object", None) or (f.get("object", f.get("obj", "")) if isinstance(f, dict) else "") or ""
+            if not subj or not pred:
+                continue
+            subj = str(subj).strip()
+            obj_val = str(obj_val).strip()
+            if subj in participants and obj_val in participants and subj != obj_val:
+                delta = 0.1 if pred.lower() in ("agreed_with", "supported", "suggested") else -0.1 if pred.lower() in ("disagreed", "opposed") else 0.05
+                self.update_relationship(subj, obj_val, delta, reason=pred, source="fact_extraction")
+                count += 1
+            elif subj in participants:
+                self.register_participant(subj)
+        return count
+
     def get_relationship_value(self, from_entity: str, to_entity: str) -> float:
         """Получить значение отношений"""
         rel = self.graph.get_relationship(from_entity, to_entity)

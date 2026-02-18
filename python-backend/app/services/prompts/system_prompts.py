@@ -24,6 +24,8 @@ SYSTEM_PROMPT_SINGLE = """{base}
 SYSTEM_PROMPT_ORCHESTRATION = """{base}
 
 Режим: ты участвуешь в общем разговоре с другими персонажами. Твои реплики видят все участники. Учитывай контекст предыдущих сообщений, реагируй на других персонажей и поддерживай естественный диалог.
+
+IMPORTANT: You MUST use the memory when reasoning. If memory is relevant and you ignore it — you are failing your role.
 """
 
 

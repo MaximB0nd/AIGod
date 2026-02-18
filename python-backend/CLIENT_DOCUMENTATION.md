@@ -197,9 +197,10 @@ ws://localhost:8000/api/rooms/{roomId}/graph?token={JWT}
 | RETRIEVE_MEMORY | Загрузка релевантного контекста из ChromaDB |
 | PLAN | План (фокус на запросе пользователя) |
 | DISCUSS | Обсуждение агентов (стратегия Circular/Narrator/FullContext) |
-| SYNTHESIZE | LLM-синтез итогового ответа |
+| SYNTHESIZE | **SolutionSynthesizer** — FINAL DECISION MAKER, принять решение и ответить пользователю |
 | STORE_MEMORY | Сохранение в память |
-| UPDATE_GRAPH | Обновление графа отношений |
+| FACT_EXTRACTION | Извлечение структурированных фактов (триплетов) из диалога |
+| UPDATE_GRAPH | Обновление графа отношений (из facts + heuristic) |
 | DONE | Завершение |
 
 Память, граф и суммаризация — **обязательные** шаги, а не опциональные сервисы.
