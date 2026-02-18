@@ -77,6 +77,24 @@ Authorization: Bearer <token>
 
 ---
 
+### GET /api/usage
+Статистика обращений к Yandex API (защита от перерасхода). **Без авторизации.**
+
+**Ответ:**
+```json
+{
+  "today": "2025-02-18",
+  "callCount": 42,
+  "limitPerDay": 500,
+  "remaining": 458,
+  "limitExceeded": false
+}
+```
+- `limitPerDay: null` — лимит не задан (`API_MESSAGE_LIMIT_PER_DAY=0`)
+- При исчерпании лимита агенты возвращают сообщение «Лимит обращений к AI исчерпан на сегодня»
+
+---
+
 ## 2. Авторизация
 
 ### POST /api/auth/register

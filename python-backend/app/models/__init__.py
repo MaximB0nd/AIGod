@@ -1,4 +1,5 @@
 from .agent import Agent
+from .api_usage import ApiUsage
 from .default_agent import DefaultAgent
 from .event import Event
 from .memory import Memory

@@ -14,6 +14,9 @@ class Config:
     SQLITE_DB_PATH = os.getenv("SQLITE_DB_PATH", "agents.db")
     CHROMA_PERSIST_DIR = os.getenv("CHROMA_PERSIST_DIR", "./chroma_db")
     
+    # API usage limit (0 = без ограничений, защита от перерасхода)
+    API_MESSAGE_LIMIT_PER_DAY = int(os.getenv("API_MESSAGE_LIMIT_PER_DAY", "100"))
+
     # Agent settings
     MAX_MEMORIES_PER_AGENT = int(os.getenv("MAX_MEMORIES_PER_AGENT", "50"))
     MEMORY_SUMMARY_THRESHOLD = int(os.getenv("MEMORY_SUMMARY_THRESHOLD", "20"))

@@ -118,6 +118,10 @@ class YandexAgentClient:
 
     def send_message(self, agent, session_id: str, text: str) -> str:
         try:
+            from app.services.api_usage_limiter import check_can_call_api, record_api_call, ApiLimitExceededError
+
+            check_can_call_api()
+
             logger.info("YandexGPT запрос agent=%s session=%s", getattr(agent, 'name', agent), session_id)
             model = self.sdk.models.completions("yandexgpt").configure(
                 temperature=TEMPERATURE
@@ -126,6 +130,7 @@ class YandexAgentClient:
             prompt = self._build_prompt(agent, session_id, text)
 
             result = model.run(prompt)
+            record_api_call()
             answer = result.text.strip()
 
             if session_id not in self.sessions:
@@ -142,6 +147,11 @@ class YandexAgentClient:
             return answer
 
         except Exception as e:
+            from app.services.api_usage_limiter import ApiLimitExceededError
+
+            if isinstance(e, ApiLimitExceededError):
+                logger.warning("YandexGPT лимит исчерпан: %s (сегодня %d из %d)", e.window, e.current, e.limit)
+                return "Лимит обращений к AI исчерпан на сегодня. Попробуйте завтра или обратитесь к администратору."
             logger.exception("YandexGPT error: %s", e)
             return "Ой-ой, связь пропала! Попробуй позже."
 

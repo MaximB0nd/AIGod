@@ -6,9 +6,11 @@ API бэкенда для хакатона «Виртуальный мир: си
 
 ```bash
 pip install -r requirements.txt
-# Создать .env с YANDEX_CLOUD_FOLDER, YANDEX_CLOUD_API_KEY
+cp .env.example .env   # и заполнить YANDEX_CLOUD_*, API_MESSAGE_LIMIT_PER_DAY
 uvicorn app.main:app --reload --port 8000
 ```
+
+**Важно:** `API_MESSAGE_LIMIT_PER_DAY` в `.env` — лимит вызовов Yandex API в день. Без него можно прогореть на расходах.
 
 Swagger: http://localhost:8000/docs
 

@@ -50,6 +50,14 @@ def migrate_add_orchestration_type():
 async def lifespan(app: FastAPI):
     print("→ Запуск lifespan (startup)")
     try:
+        limit = int(__import__("os").environ.get("API_MESSAGE_LIMIT_PER_DAY", "100"))
+        if limit <= 0:
+            print("⚠️  ВНИМАНИЕ: API_MESSAGE_LIMIT_PER_DAY=0 — лимит отключён, риск перерасхода!")
+        else:
+            print(f"→ Лимит API: {limit} вызовов/день")
+    except Exception:
+        pass
+    try:
         migrate_add_orchestration_type()
     except Exception as e:
         print(f"Ошибка миграции: {e}")
@@ -98,6 +106,9 @@ app.include_router(agents_router, prefix="/api")
 app.include_router(default_agents_router, prefix="/api")
 app.include_router(prompts_router, prefix="/api")
 app.include_router(websocket_router, prefix="/api")
+
+# Регистрируем модели для create_all (api_usage для лимита API)
+from app.models.api_usage import ApiUsage  # noqa: F401
 
 # Создаём таблицы
 Base.metadata.create_all(bind=engine)

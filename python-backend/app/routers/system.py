@@ -19,6 +19,17 @@ def test_db(db: Session = Depends(get_db)):
     return {"status": "база подключена"}
 
 
+@router.get("/usage", summary="Статистика обращений к API")
+def get_api_usage():
+    """
+    Текущее использование Yandex API (лимит сообщений в день).
+    Лимит задаётся через API_MESSAGE_LIMIT_PER_DAY в .env.
+    """
+    from app.services.api_usage_limiter import get_usage_stats
+
+    return get_usage_stats()
+
+
 @router.get("/test-chromadb", summary="Проверка ChromaDB")
 def test_chromadb():
     """

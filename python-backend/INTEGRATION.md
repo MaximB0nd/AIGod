@@ -15,6 +15,7 @@
 |------------|----------|--------------|
 | `YANDEX_CLOUD_FOLDER` | folder_id в Yandex Cloud | — |
 | `YANDEX_CLOUD_API_KEY` | API key (можно с префиксом `Api-Key `) | — |
+| `API_MESSAGE_LIMIT_PER_DAY` | Лимит вызовов Yandex API в день (0 = без ограничений) | `0` |
 | `SQLITE_DB_PATH` | Путь к SQLite БД | `aigod.db` |
 | `SECRET_KEY` | JWT секрет | (встроенный) |
 | `LOG_LEVEL` | Уровень логов: `DEBUG`, `INFO`, `WARNING`, `ERROR` | `INFO` |
