@@ -185,9 +185,85 @@
   color: var(--tg-muted);
 }
 
-.noMemories {
+.noMemories,
+.emptyText {
   margin: 0;
   font-size: 0.875rem;
   color: var(--tg-muted);
   font-style: italic;
+}
+
+/* Планы */
+.plansList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.planItem {
+  padding: 12px;
+  background: var(--tg-hover);
+  border-radius: var(--radius-sm);
+  margin-bottom: 8px;
+  border-left: 3px solid var(--tg-muted);
+}
+
+.planItem[data-status='in_progress'] {
+  border-left-color: var(--tg-accent);
+}
+
+.planItem[data-status='done'] {
+  border-left-color: var(--color-success, #22c55e);
+  opacity: 0.85;
+}
+
+.planItem:last-child {
+  margin-bottom: 0;
+}
+
+.planDescription {
+  margin: 0 0 6px;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  color: var(--tg-text);
+  word-break: break-word;
+}
+
+.planStatus {
+  font-size: 0.75rem;
+  color: var(--tg-muted);
+}
+
+/* Взаимоотношения */
+.relationshipsList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.relationshipItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--tg-hover);
+  border-radius: var(--radius-sm);
+  margin-bottom: 6px;
+}
+
+.relationshipItem:last-child {
+  margin-bottom: 0;
+}
+
+.relationshipName {
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--tg-text);
+}
+
+.relationshipLevel {
+  font-size: 0.75rem;
+  color: var(--tg-muted);
+  white-space: nowrap;
 }

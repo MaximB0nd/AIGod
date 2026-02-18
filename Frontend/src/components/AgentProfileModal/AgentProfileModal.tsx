@@ -1,11 +1,17 @@
 /**
  * Модалка профиля агента
- * Полная информация + воспоминания (GET /api/rooms/{roomId}/agents/{agentId}, memories)
+ * Полная информация: характер, воспоминания, планы, взаимоотношения с агентами комнаты
+ * API: GET /api/rooms/{roomId}/agents/{agentId}, memories, plans, relationships
  */
 
 import { useState, useEffect, useCallback } from 'react'
-import { fetchAgent, fetchAgentMemories } from '@/api/agents'
-import type { Agent, Memory } from '@/types/agent'
+import {
+  fetchAgent,
+  fetchAgentMemories,
+  fetchAgentPlans,
+  fetchRelationships,
+} from '@/api/agents'
+import type { Agent, Memory, Plan } from '@/types/agent'
 import styles from './AgentProfileModal.module.css'
 
 interface AgentProfileModalProps {
@@ -24,10 +30,44 @@ function formatMemoryTime(iso: string): string {
   })
 }
 
+function getRelationshipsForAgent(
+  agentId: string,
+  nodes: { id: string; name: string }[],
+  edges: { from: string; to: string; agentName?: string; sympathyLevel: number }[]
+): { agentName: string; sympathyLevel: number }[] {
+  const nodeMap = new Map(nodes.map((n) => [n.id, n.name]))
+  return edges
+    .filter((e) => e.from === agentId || e.to === agentId)
+    .map((e) => {
+      const otherId = e.from === agentId ? e.to : e.from
+      const agentName = e.agentName ?? nodeMap.get(otherId) ?? `Агент ${otherId}`
+      return { agentName, sympathyLevel: e.sympathyLevel }
+    })
+}
+
+function formatSympathy(level: number): string {
+  if (level >= 0.7) return 'Очень положительное'
+  if (level >= 0.3) return 'Положительное'
+  if (level >= -0.3) return 'Нейтральное'
+  if (level >= -0.7) return 'Отрицательное'
+  return 'Очень отрицательное'
+}
+
+function getPlanStatusLabel(status: Plan['status']): string {
+  const labels: Record<Plan['status'], string> = {
+    pending: 'Ожидает',
+    in_progress: 'В процессе',
+    done: 'Выполнено',
+  }
+  return labels[status] ?? status
+}
+
 export function AgentProfileModal({ isOpen, onClose, roomId, agentId }: AgentProfileModalProps) {
   const [agent, setAgent] = useState<Agent | null>(null)
   const [memories, setMemories] = useState<Memory[]>([])
   const [memoriesTotal, setMemoriesTotal] = useState(0)
+  const [plans, setPlans] = useState<Plan[]>([])
+  const [relationships, setRelationships] = useState<{ agentName: string; sympathyLevel: number }[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -36,17 +76,25 @@ export function AgentProfileModal({ isOpen, onClose, roomId, agentId }: AgentPro
     setLoading(true)
     setError(null)
     try {
-      const [agentData, memoriesData] = await Promise.all([
+      const [agentData, memoriesData, plansData, relationshipsData] = await Promise.all([
         fetchAgent(roomId, agentId),
         fetchAgentMemories(roomId, agentId, { limit: 50, offset: 0 }),
+        fetchAgentPlans(roomId, agentId),
+        fetchRelationships(roomId),
       ])
       setAgent(agentData)
       setMemories(memoriesData.memories ?? [])
       setMemoriesTotal(memoriesData.total ?? 0)
+      setPlans(plansData.plans ?? [])
+      setRelationships(
+        getRelationshipsForAgent(agentId, relationshipsData.nodes ?? [], relationshipsData.edges ?? [])
+      )
     } catch {
       setError('Ошибка загрузки профиля')
       setAgent(null)
       setMemories([])
+      setPlans([])
+      setRelationships([])
     } finally {
       setLoading(false)
     }
@@ -58,6 +106,8 @@ export function AgentProfileModal({ isOpen, onClose, roomId, agentId }: AgentPro
     } else {
       setAgent(null)
       setMemories([])
+      setPlans([])
+      setRelationships([])
       setError(null)
     }
   }, [isOpen, roomId, agentId, loadProfile])
@@ -144,13 +194,50 @@ export function AgentProfileModal({ isOpen, onClose, roomId, agentId }: AgentPro
                   )}
                 </label>
                 {memories.length === 0 ? (
-                  <p className={styles.noMemories}>Нет воспоминаний</p>
+                  <p className={styles.emptyText}>Нет воспоминаний</p>
                 ) : (
                   <ul className={styles.memoriesList}>
                     {memories.map((m) => (
                       <li key={m.id} className={styles.memoryItem}>
                         <p className={styles.memoryContent}>{m.content}</p>
                         <span className={styles.memoryTime}>{formatMemoryTime(m.timestamp)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              <div className={styles.section}>
+                <label className={styles.label}>Планы</label>
+                {plans.length === 0 ? (
+                  <p className={styles.emptyText}>Нет планов</p>
+                ) : (
+                  <ul className={styles.plansList}>
+                    {plans.map((p) => (
+                      <li key={p.id} className={styles.planItem} data-status={p.status}>
+                        <p className={styles.planDescription}>{p.description}</p>
+                        <span className={styles.planStatus}>{getPlanStatusLabel(p.status)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              <div className={styles.section}>
+                <label className={styles.label}>Взаимоотношения с агентами комнаты</label>
+                {relationships.length === 0 ? (
+                  <p className={styles.emptyText}>Нет данных об отношениях</p>
+                ) : (
+                  <ul className={styles.relationshipsList}>
+                    {relationships.map((r, i) => (
+                      <li key={`${r.agentName}-${i}`} className={styles.relationshipItem}>
+                        <span className={styles.relationshipName}>{r.agentName}</span>
+                        <span
+                          className={styles.relationshipLevel}
+                          title={`Уровень симпатии: ${(r.sympathyLevel * 100).toFixed(0)}%`}
+                        >
+                          {formatSympathy(r.sympathyLevel)} ({Math.round(r.sympathyLevel * 100)}%)
+                        </span>
                       </li>
                     ))}
                   </ul>
