@@ -11,9 +11,11 @@ interface MessageBubbleProps {
   message: Message & { sender?: 'user' | 'agent' | 'system' }
   character?: Character
   isOutgoing: boolean
+  /** При клике на аватар — открыть профиль агента (только для входящих) */
+  onAvatarClick?: (agentId: string) => void
 }
 
-export function MessageBubble({ message, character, isOutgoing }: MessageBubbleProps) {
+export function MessageBubble({ message, character, isOutgoing, onAvatarClick }: MessageBubbleProps) {
   const time = formatChatTime(message.timestamp)
   const authorName = isOutgoing ? 'Вы' : (character?.name ?? 'Агент')
   const { playingMessageId, play, stop } = useTts()
@@ -25,8 +27,43 @@ export function MessageBubble({ message, character, isOutgoing }: MessageBubbleP
     else play(message.id, message.content)
   }
 
+  const handleAvatarClick = () => {
+    if (message.characterId && onAvatarClick) onAvatarClick(message.characterId)
+  }
+
+  const renderAgentAvatar = () => {
+    const displayName = character?.name ?? 'Агент'
+    const initials = displayName.slice(0, 2).toUpperCase() || '?'
+    const avatarContent = character?.avatar ? (
+      <img src={character.avatar} alt="" />
+    ) : (
+      <span>{initials}</span>
+    )
+
+    const avatarEl = (
+      <div className={styles.messageAvatar} title={`Профиль: ${displayName}`}>
+        {avatarContent}
+      </div>
+    )
+
+    if (message.characterId && onAvatarClick) {
+      return (
+        <button
+          type="button"
+          className={styles.messageAvatarBtn}
+          onClick={handleAvatarClick}
+          aria-label={`Открыть профиль ${displayName}`}
+        >
+          {avatarEl}
+        </button>
+      )
+    }
+    return <div className={styles.messageAvatarWrap}>{avatarEl}</div>
+  }
+
   return (
     <div className={`${styles.bubbleWrap} ${isOutgoing ? styles.outgoing : styles.incoming}`}>
+      {!isOutgoing && renderAgentAvatar()}
       <div className={styles.bubble}>
         <div className={styles.bubbleHeader}>
           <span className={styles.author}>{authorName}</span>

@@ -11,6 +11,7 @@ import {
   fetchAgentPlans,
   fetchRelationships,
 } from '@/api/agents'
+import { ApiError } from '@/api/client'
 import type { Agent, Memory, Plan } from '@/types/agent'
 import styles from './AgentProfileModal.module.css'
 
@@ -70,11 +71,14 @@ export function AgentProfileModal({ isOpen, onClose, roomId, agentId }: AgentPro
   const [relationships, setRelationships] = useState<{ agentName: string; sympathyLevel: number }[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  /** Агент удалён или не существует — показываем «Удалённый аккаунт» */
+  const [isDeleted, setIsDeleted] = useState(false)
 
   const loadProfile = useCallback(async () => {
     if (!roomId || !agentId) return
     setLoading(true)
     setError(null)
+    setIsDeleted(false)
     try {
       const [agentData, memoriesData, plansData, relationshipsData] = await Promise.all([
         fetchAgent(roomId, agentId),
@@ -89,12 +93,17 @@ export function AgentProfileModal({ isOpen, onClose, roomId, agentId }: AgentPro
       setRelationships(
         getRelationshipsForAgent(agentId, relationshipsData.nodes ?? [], relationshipsData.edges ?? [])
       )
-    } catch {
-      setError('Ошибка загрузки профиля')
+    } catch (err) {
       setAgent(null)
       setMemories([])
       setPlans([])
       setRelationships([])
+      const isNotFound = err instanceof ApiError && (err.status === 404 || err.status === 410)
+      if (isNotFound) {
+        setIsDeleted(true)
+      } else {
+        setError('Ошибка загрузки профиля')
+      }
     } finally {
       setLoading(false)
     }
@@ -109,6 +118,7 @@ export function AgentProfileModal({ isOpen, onClose, roomId, agentId }: AgentPro
       setPlans([])
       setRelationships([])
       setError(null)
+      setIsDeleted(false)
     }
   }, [isOpen, roomId, agentId, loadProfile])
 
@@ -143,7 +153,16 @@ export function AgentProfileModal({ isOpen, onClose, roomId, agentId }: AgentPro
           {error && (
             <p className={styles.error}>{error}</p>
           )}
-          {!loading && !error && agent && (
+          {isDeleted && (
+            <div className={styles.deletedAccount}>
+              <div className={styles.deletedAvatar}>
+                <span>?</span>
+              </div>
+              <h3 className={styles.deletedTitle}>Удалённый аккаунт</h3>
+              <p className={styles.deletedText}>Этот агент был удалён или больше не существует.</p>
+            </div>
+          )}
+          {!loading && !error && !isDeleted && agent && (
             <>
               <div className={styles.avatarRow}>
                 <div

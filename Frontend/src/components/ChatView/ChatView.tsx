@@ -9,6 +9,7 @@ import { EventBubble } from './EventBubble'
 import { ChatHeader } from './ChatHeader'
 import { UnifiedInput } from './UnifiedInput'
 import { GroupInfoModal } from '../GroupInfoModal/GroupInfoModal'
+import { AgentProfileModal } from '../AgentProfileModal'
 import styles from './ChatView.module.css'
 
 interface ChatViewProps {
@@ -37,6 +38,7 @@ export function ChatView({ onAddCharacter, onToggleSidebar, sidebarCollapsed, on
   /** Пропустить следующий scroll-to-bottom — подгрузка старых сообщений, сохраняем позицию */
   const skipNextScrollToBottomRef = useRef(false)
   const [showGroupInfo, setShowGroupInfo] = useState(false)
+  const [profileAgentId, setProfileAgentId] = useState<string | null>(null)
 
   const handleCloseChat = useCallback(() => {
     selectChat(null)
@@ -196,6 +198,7 @@ export function ChatView({ onAddCharacter, onToggleSidebar, sidebarCollapsed, on
                   message={item.data}
                   character={item.data.sender === 'user' ? undefined : getCharacter(item.data.characterId)}
                   isOutgoing={item.data.sender === 'user'}
+                  onAvatarClick={setProfileAgentId}
                 />
               ) : (
                 <EventBubble key={item.data.id} event={item.data} characters={characters} />
@@ -208,6 +211,12 @@ export function ChatView({ onAddCharacter, onToggleSidebar, sidebarCollapsed, on
         isOpen={showGroupInfo}
         onClose={() => setShowGroupInfo(false)}
         chat={activeChat}
+      />
+      <AgentProfileModal
+        isOpen={!!profileAgentId}
+        onClose={() => setProfileAgentId(null)}
+        roomId={activeChat.id}
+        agentId={profileAgentId}
       />
       </div>
     </div>
