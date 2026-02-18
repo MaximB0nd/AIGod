@@ -2,7 +2,7 @@
  * Окно чата — нейросети общаются, пользователь пишет события от рассказчика
  */
 
-import { useRef, useEffect, useCallback, useState } from 'react'
+import { useRef, useEffect, useLayoutEffect, useCallback, useState } from 'react'
 import { useChat } from '@/context/ChatContext'
 import { MessageBubble } from './MessageBubble'
 import { EventBubble } from './EventBubble'
@@ -43,9 +43,31 @@ export function ChatView({ onAddCharacter, onToggleSidebar, sidebarCollapsed, on
     setShowGroupInfo(true)
   }, [])
 
-  useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
-  }, [feed])
+  // Скролл вниз при загрузке/обновлении ленты. Двойной rAF нужен, чтобы дождаться
+  // завершения layout — иначе scrollHeight может быть 0 и контент не отображается до первой прокрутки.
+  useLayoutEffect(() => {
+    const container = scrollRef.current
+    if (!container || feed.length === 0) return
+
+    const scrollToBottom = () => {
+      container.scrollTop = container.scrollHeight
+    }
+
+    let raf2: number | null = null
+    let fallbackId: ReturnType<typeof setTimeout> | null = null
+    const raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => {
+        scrollToBottom()
+        // Fallback: на медленных устройствах layout может завершиться позже
+        fallbackId = setTimeout(scrollToBottom, 100)
+      })
+    })
+    return () => {
+      cancelAnimationFrame(raf1)
+      if (raf2 != null) cancelAnimationFrame(raf2)
+      if (fallbackId != null) clearTimeout(fallbackId)
+    }
+  }, [feed, isMessagesLoading])
 
   const scrollHeightBeforeLoadRef = useRef(0)
   useEffect(() => {

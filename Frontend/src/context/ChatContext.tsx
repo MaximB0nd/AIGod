@@ -128,6 +128,10 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (activeChat) {
+      // Сразу очищаем при смене чата, чтобы не показывать сообщения из предыдущего
+      setMessages([])
+      setFeed([])
+      setCharacters([])
       loadMessages(activeChat.id)
     } else {
       setMessages([])
