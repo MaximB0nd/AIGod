@@ -150,6 +150,18 @@ class PipelineExecutor:
                     self.strategy.context.add_message(msg)
                     if self.on_message:
                         await self.on_message(msg)
+                    try:
+                        from app.services.agents_orchestration.message_type import MessageType
+                        from app.services.room_services_registry import get_emotional_integration
+                        if msg.type == MessageType.AGENT:
+                            emo = get_emotional_integration(self.room)
+                            if emo:
+                                await emo.on_agent_message(
+                                    msg.content, msg.sender,
+                                    f"room_{state.room_id}", state.agent_names,
+                                )
+                    except Exception:
+                        pass
 
             round_count += 1
             await asyncio.sleep(0.3)

@@ -15,12 +15,13 @@ class EmotionAnalyzer:
     Анализирует эмоциональную окраску сообщений
     """
     
-    def __init__(self, 
-                 chat_service,  # любой chat_service с интерфейсом __call__
+    def __init__(self,
+                 chat_service=None,
                  analyzer_agent_name: str = "emotion_analyzer",
-                 batch_size: int = 5):
-        
+                 batch_size: int = 5,
+                 use_api: bool = True):
         self.chat_service = chat_service
+        self.use_api = use_api
         self.analyzer_agent_name = analyzer_agent_name
         self.batch_size = batch_size
         
@@ -82,7 +83,7 @@ class EmotionAnalyzer:
                 pass
             self._worker_task = None
     
-    async def analyze_message(self, 
+    async def analyze_message(self,
                              message: str,
                              sender: str,
                              participants: List[str],

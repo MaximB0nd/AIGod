@@ -74,13 +74,15 @@ def get_emotional_integration(room) -> Optional["EmotionalOrchestrationIntegrati
     try:
         from app.services.emotional_intelligence import EmotionalIntelligenceManager
         from app.services.emotional_intelligence.integration import EmotionalOrchestrationIntegration
+        from app.services.emotional_intelligence.analyzer import EmotionAnalyzer
 
-        manager = EmotionalIntelligenceManager(analyzer=None)
+        analyzer = EmotionAnalyzer(chat_service=None, use_api=False)
+        manager = EmotionalIntelligenceManager(analyzer=analyzer)
         agent_names = [a.name for a in room.agents]
         manager.register_entities(agent_names)
         integration = EmotionalOrchestrationIntegration(
             emotional_manager=manager,
-            auto_analyze=False,
+            auto_analyze=True,
         )
         _emotional_managers[room_id] = manager
         _emotional_integrations[room_id] = integration

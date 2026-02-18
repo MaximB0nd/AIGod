@@ -155,11 +155,13 @@ class EmotionalIntelligenceManager:
             return None
         
         # Анализируем эмоции в сообщении
+        use_api = getattr(self.analyzer, "use_api", True)
         result = await self.analyzer.analyze_message(
             message=message,
             sender=sender,
             participants=participants,
-            message_id=message_id
+            use_api=use_api,
+            message_id=message_id,
         )
         
         if result:

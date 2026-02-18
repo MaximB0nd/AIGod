@@ -68,7 +68,7 @@ def _agent_id_by_name(agents: list[Agent], name: str) -> Optional[int]:
 def _make_message_callback(room_id: int, agents: list[Agent]):
     """Колбэк: сохранить в БД и broadcast. Память и граф — в этапах pipeline."""
     async def on_message(msg: Message) -> None:
-        if msg.type not in (MessageType.AGENT, MessageType.NARRATOR, MessageType.SUMMARIZED):
+        if msg.type not in (MessageType.AGENT, MessageType.NARRATOR, MessageType.SUMMARIZED, MessageType.SYSTEM):
             logger.debug("orchestration on_message room_id=%s skip type=%s", room_id, msg.type)
             return
 
@@ -234,7 +234,7 @@ async def run_pipeline_executor(room_id: int, text: str, sender: str = "user", r
         strategy=components["strategy"],
         agents=components["agents"],
         on_message=callback,
-        max_discuss_rounds=5,
+        max_discuss_rounds=50,
     )
 
     asyncio.create_task(executor.run(text, sender))

@@ -12,12 +12,20 @@ logger = logging.getLogger("aigod.orchestration.service")
 from app.services.agents_orchestration import OrchestrationClient
 from app.services.agents_orchestration.strategies import (
     CircularStrategy,
+    CircularWithNarratorSummarizerStrategy,
     FullContextStrategy,
     NarratorStrategy,
 )
+from app.constants import (
+    NARRATOR_AGENT_NAME,
+    NARRATOR_PERSONALITY,
+    SUMMARIZER_AGENT_NAME,
+    SUMMARIZER_PERSONALITY,
+)
 from app.services.agents_orchestration.yandex_adapter import YandexAgentAdapter
-from app.services.prompt_enhancer import enhance_prompt_with_relationship
+from app.services.prompt_enhancer import enhance_prompt_with_relationship, enhance_prompt_with_emotional_state
 from app.services.relationship_model_service import get_relationship_manager
+from app.services.room_services_registry import get_emotional_integration
 from app.services.yandex_client.yandex_agent_client import YandexAgentClient
 
 
@@ -70,6 +78,10 @@ class _RelationshipEnhancingAdapter:
         rel_manager = self._get_rel_manager()
         if rel_manager:
             prompt = enhance_prompt_with_relationship(rel_manager, agent_name, prompt)
+        # 3. Эмоции
+        emo = get_emotional_integration(self.room) if hasattr(self, "room") else None
+        if emo:
+            prompt = enhance_prompt_with_emotional_state(emo, agent_name, prompt)
         return await self.inner(agent_name, session_id, prompt, context)
 
 
@@ -98,12 +110,25 @@ def create_orchestration_client(room) -> Optional[OrchestrationClient]:
 
     base_adapter = YandexAgentAdapter(yandex_client)
     base_adapter.register_agents_from_room(room.agents)
+    if orchestration_type == "circular":
+        base_adapter.register_agent(NARRATOR_AGENT_NAME, NARRATOR_PERSONALITY)
+        base_adapter.register_agent(SUMMARIZER_AGENT_NAME, SUMMARIZER_PERSONALITY)
     adapter = _RelationshipEnhancingAdapter(base_adapter, room)
 
-    client = OrchestrationClient(agent_names, adapter, room_id=room.id)
+    from app.constants import NARRATOR_DISPLAY_NAME, SUMMARIZER_DISPLAY_NAME
+    all_agent_names = agent_names + [NARRATOR_AGENT_NAME, SUMMARIZER_AGENT_NAME] if orchestration_type == "circular" else agent_names
+    client = OrchestrationClient(all_agent_names if orchestration_type == "circular" else agent_names, adapter, room_id=room.id)
 
     if orchestration_type == "circular":
-        strategy = CircularStrategy(client.context, max_rounds=5)
+        strategy = CircularWithNarratorSummarizerStrategy(
+            client.context,
+            max_rounds=50,
+            narrator_interval=2,
+            narrator_agent_name=NARRATOR_AGENT_NAME,
+            narrator_display_name=NARRATOR_DISPLAY_NAME,
+            summarizer_agent_name=SUMMARIZER_AGENT_NAME,
+            summarizer_display_name=SUMMARIZER_DISPLAY_NAME,
+        )
     elif orchestration_type == "narrator":
         narrator = agent_names[0]
         strategy = NarratorStrategy(
@@ -150,13 +175,27 @@ def create_pipeline_components(room):
 
     base_adapter = YandexAgentAdapter(yandex_client)
     base_adapter.register_agents_from_room(room.agents)
+    if orchestration_type == "circular":
+        base_adapter.register_agent(NARRATOR_AGENT_NAME, NARRATOR_PERSONALITY)
+        base_adapter.register_agent(SUMMARIZER_AGENT_NAME, SUMMARIZER_PERSONALITY)
     adapter = _RelationshipEnhancingAdapter(base_adapter, room)
 
     from app.services.agents_orchestration.context import ConversationContext
-    context = ConversationContext(participants=agent_names.copy())
+    from app.constants import NARRATOR_DISPLAY_NAME, SUMMARIZER_DISPLAY_NAME
+
+    all_agent_names = agent_names + [NARRATOR_AGENT_NAME, SUMMARIZER_AGENT_NAME] if orchestration_type == "circular" else agent_names
+    context = ConversationContext(participants=all_agent_names.copy())
 
     if orchestration_type == "circular":
-        strategy = CircularStrategy(context, max_rounds=5)
+        strategy = CircularWithNarratorSummarizerStrategy(
+            context,
+            max_rounds=50,
+            narrator_interval=2,
+            narrator_agent_name=NARRATOR_AGENT_NAME,
+            narrator_display_name=NARRATOR_DISPLAY_NAME,
+            summarizer_agent_name=SUMMARIZER_AGENT_NAME,
+            summarizer_display_name=SUMMARIZER_DISPLAY_NAME,
+        )
     elif orchestration_type == "narrator":
         strategy = NarratorStrategy(
             context,
@@ -177,9 +216,10 @@ def create_pipeline_components(room):
 
     strategy.context = context
     strategy.chat_service = adapter
+    agents_for_strategy = all_agent_names if orchestration_type == "circular" else agent_names
     return {
         "chat_service": adapter,
         "strategy": strategy,
         "context": context,
-        "agents": agent_names,
+        "agents": agents_for_strategy,
     }
