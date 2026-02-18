@@ -55,64 +55,6 @@
 
 ## 🚀 Быстрый старт (Запуск прототипа)
 
-### Предварительные требования
-*   Python 3.11+
-*   Node.js 18+
-*   Docker (опционально)
-*   Ключ API (OpenAI/Gemini/Yandex)
-
-### Установка и запуск
-
-1.  **Клонировать репозиторий**
-    ```bash
-    git clone https://github.com/ваш-username/ai-society-simulator.git
-    cd ai-society-simulator
-    ```
-
-2.  **Настройка бэкенда**
-    ```bash
-    cd backend
-    python -m venv venv
-    source venv/bin/activate  # На Windows: venv\Scripts\activate
-    pip install -r requirements.txt
-    ```
-    Создайте файл `.env` в папке `backend` и укажите ключи API:
-    ```env
-    OPENAI_API_KEY=your_key_here
-    # или GEMINI_API_KEY=...
-    DATABASE_URL=sqlite:///./agents.db
-    VECTOR_DB_PATH=./chroma_db
-    ```
-
-3.  **Запуск бэкенда**
-    ```bash
-    uvicorn main:app --reload --port 8000
-    ```
-
-4.  **Настройка фронтенда**
-    ```bash
-    cd ../frontend
-    npm install
-    ```
-    При необходимости укажите адрес бэкенда в `.env` файле фронтенда:
-    ```env
-    REACT_APP_API_URL=http://localhost:8000
-    ```
-
-5.  **Запуск фронтенда**
-    ```bash
-    npm start
-    ```
-
-6.  Откройте браузер и перейдите по адресу: `http://localhost:3000`
-
-### Запуск через Docker (альтернатива)
-```bash
-docker-compose up --build
-```
-
----
-
 ## 📦 Развёртывание (Deployment)
 
 Проект состоит из двух частей: **Python Backend** (запускается через Docker Compose) и **Frontend** (запускается через npm, без Docker).
