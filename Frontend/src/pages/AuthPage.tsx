@@ -53,7 +53,11 @@ export function AuthPage() {
       setError(null)
       setIsSubmitting(true)
       try {
-        await register({ email: regEmail, password: regPassword, username: regUsername })
+        await register({
+          email: regEmail,
+          password: regPassword,
+          ...(regUsername.trim() && { username: regUsername.trim() }),
+        })
         navigate('/', { replace: true, state: { fromRegistration: true } })
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Ошибка регистрации')
@@ -141,14 +145,13 @@ export function AuthPage() {
               />
             </label>
             <label className={styles.label}>
-              Имя пользователя
+              Имя пользователя (необязательно)
               <input
                 type="text"
                 value={regUsername}
                 onChange={(e) => setRegUsername(e.target.value)}
-                placeholder="username"
+                placeholder="По умолчанию — часть до @ из email"
                 className={styles.input}
-                required
                 autoComplete="username"
               />
             </label>

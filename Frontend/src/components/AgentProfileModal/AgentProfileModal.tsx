@@ -10,6 +10,7 @@ import {
   fetchAgentMemories,
   fetchAgentPlans,
   fetchRelationships,
+  updateRelationship,
 } from '@/api/agents'
 import { ApiError } from '@/api/client'
 import type { Agent, Memory, Plan } from '@/types/agent'
@@ -35,14 +36,14 @@ function getRelationshipsForAgent(
   agentId: string,
   nodes: { id: string; name: string }[],
   edges: { from: string; to: string; agentName?: string; sympathyLevel: number }[]
-): { agentName: string; sympathyLevel: number }[] {
+): { otherAgentId: string; agentName: string; sympathyLevel: number }[] {
   const nodeMap = new Map(nodes.map((n) => [n.id, n.name]))
   return edges
     .filter((e) => e.from === agentId || e.to === agentId)
     .map((e) => {
       const otherId = e.from === agentId ? e.to : e.from
       const agentName = e.agentName ?? nodeMap.get(otherId) ?? `Агент ${otherId}`
-      return { agentName, sympathyLevel: e.sympathyLevel }
+      return { otherAgentId: otherId, agentName, sympathyLevel: e.sympathyLevel }
     })
 }
 
@@ -68,11 +69,15 @@ export function AgentProfileModal({ isOpen, onClose, roomId, agentId }: AgentPro
   const [memories, setMemories] = useState<Memory[]>([])
   const [memoriesTotal, setMemoriesTotal] = useState(0)
   const [plans, setPlans] = useState<Plan[]>([])
-  const [relationships, setRelationships] = useState<{ agentName: string; sympathyLevel: number }[]>([])
+  const [relationships, setRelationships] = useState<{ otherAgentId: string; agentName: string; sympathyLevel: number }[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   /** Агент удалён или не существует — показываем «Удалённый аккаунт» */
   const [isDeleted, setIsDeleted] = useState(false)
+  /** Редактирование симпатии: otherAgentId или null */
+  const [editingOtherId, setEditingOtherId] = useState<string | null>(null)
+  const [editSympathy, setEditSympathy] = useState(0)
+  const [updateLoading, setUpdateLoading] = useState(false)
 
   const loadProfile = useCallback(async () => {
     if (!roomId || !agentId) return
@@ -119,6 +124,7 @@ export function AgentProfileModal({ isOpen, onClose, roomId, agentId }: AgentPro
       setRelationships([])
       setError(null)
       setIsDeleted(false)
+      setEditingOtherId(null)
     }
   }, [isOpen, roomId, agentId, loadProfile])
 
@@ -129,6 +135,40 @@ export function AgentProfileModal({ isOpen, onClose, roomId, agentId }: AgentPro
   const handleModalClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation()
   }, [])
+
+  const handleStartEdit = useCallback((r: { otherAgentId: string; sympathyLevel: number }) => {
+    setEditingOtherId(r.otherAgentId)
+    setEditSympathy(r.sympathyLevel)
+  }, [])
+
+  const handleCancelEdit = useCallback(() => {
+    setEditingOtherId(null)
+  }, [])
+
+  const handleSaveRelationship = useCallback(async () => {
+    if (!roomId || !agentId || !editingOtherId || updateLoading) return
+    const id1 = parseInt(agentId, 10)
+    const id2 = parseInt(editingOtherId, 10)
+    if (Number.isNaN(id1) || Number.isNaN(id2)) return
+    setUpdateLoading(true)
+    try {
+      await updateRelationship(roomId, {
+        agent1Id: id1,
+        agent2Id: id2,
+        sympathyLevel: editSympathy,
+      })
+      setRelationships((prev) =>
+        prev.map((r) =>
+          r.otherAgentId === editingOtherId ? { ...r, sympathyLevel: editSympathy } : r
+        )
+      )
+      setEditingOtherId(null)
+    } catch {
+      setError('Не удалось обновить отношение')
+    } finally {
+      setUpdateLoading(false)
+    }
+  }, [roomId, agentId, editingOtherId, editSympathy, updateLoading])
 
   if (!isOpen) return null
 
@@ -250,13 +290,63 @@ export function AgentProfileModal({ isOpen, onClose, roomId, agentId }: AgentPro
                   <ul className={styles.relationshipsList}>
                     {relationships.map((r, i) => (
                       <li key={`${r.agentName}-${i}`} className={styles.relationshipItem}>
-                        <span className={styles.relationshipName}>{r.agentName}</span>
-                        <span
-                          className={styles.relationshipLevel}
-                          title={`Уровень симпатии: ${(r.sympathyLevel * 100).toFixed(0)}%`}
-                        >
-                          {formatSympathy(r.sympathyLevel)} ({Math.round(r.sympathyLevel * 100)}%)
-                        </span>
+                        {editingOtherId === r.otherAgentId ? (
+                          <div className={styles.relationshipEdit}>
+                            <span className={styles.relationshipName}>{r.agentName}</span>
+                            <input
+                              type="range"
+                              min={-1}
+                              max={1}
+                              step={0.1}
+                              value={editSympathy}
+                              onChange={(e) => setEditSympathy(Number(e.target.value))}
+                              className={styles.sympathySlider}
+                              aria-label={`Симпатия к ${r.agentName}`}
+                            />
+                            <span className={styles.relationshipLevel}>
+                              {Math.round(editSympathy * 100)}%
+                            </span>
+                            <div className={styles.relationshipEditActions}>
+                              <button
+                                type="button"
+                                className={styles.editSaveBtn}
+                                onClick={handleSaveRelationship}
+                                disabled={updateLoading}
+                              >
+                                {updateLoading ? '…' : 'Сохранить'}
+                              </button>
+                              <button
+                                type="button"
+                                className={styles.editCancelBtn}
+                                onClick={handleCancelEdit}
+                                disabled={updateLoading}
+                              >
+                                Отмена
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            <span className={styles.relationshipName}>{r.agentName}</span>
+                            <div className={styles.relationshipRight}>
+                              <span
+                                className={styles.relationshipLevel}
+                                title={`Уровень симпатии: ${(r.sympathyLevel * 100).toFixed(0)}%`}
+                              >
+                                {formatSympathy(r.sympathyLevel)} ({Math.round(r.sympathyLevel * 100)}%)
+                              </span>
+                              <button
+                                type="button"
+                                className={styles.editBtn}
+                                onClick={() => handleStartEdit(r)}
+                                title="Изменить уровень симпатии"
+                                aria-label={`Изменить отношение к ${r.agentName}`}
+                              >
+                                ✎
+                              </button>
+                            </div>
+                          </>
+                        )}
                       </li>
                     ))}
                   </ul>

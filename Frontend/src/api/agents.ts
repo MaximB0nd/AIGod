@@ -85,6 +85,22 @@ export async function fetchRelationships(roomId: string): Promise<RelationshipsR
   return apiFetch<RelationshipsResponse>(`/api/rooms/${roomId}/relationships`)
 }
 
+export interface RelationshipModelResponse {
+  graph: RelationshipsResponse
+  history?: unknown[]
+  stats?: Record<string, unknown>
+  agent_ids?: Record<string, string>
+}
+
+/**
+ * GET /api/rooms/{roomId}/relationship-model — расширенные данные (граф, история, статистика)
+ */
+export async function fetchRelationshipModel(
+  roomId: string
+): Promise<RelationshipModelResponse> {
+  return apiFetch<RelationshipModelResponse>(`/api/rooms/${roomId}/relationship-model`)
+}
+
 /**
  * PATCH /api/rooms/{roomId}/relationships — обновить ребро графа
  * Рассылает edge_update в WebSocket графа
