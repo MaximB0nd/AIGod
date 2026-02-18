@@ -49,7 +49,8 @@
 *   **Python 3.13**
 
 ### ИИ и Память
-*   **LLM-провайдер:** YandexGPT (Yandex AI SDK)
+*   **LLM-провайдер:** YandexGPT (модель `yandexgpt`)
+*   **Библиотека:** `yandex-ai-studio-sdk` — официальный SDK для Yandex AI Studio / Yandex Cloud
 *   **Векторная БД:** ChromaDB (опционально, для локальной разработки; в Docker не включён)
 *   **Эмбеддинги:** Sentence-Transformers (`all-MiniLM-L6-v2`) через ChromaDB
 
