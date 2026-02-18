@@ -97,9 +97,17 @@ def _make_message_callback(room_id: int, agents: list[Agent]):
                         importance=0.6,
                     )
                     session.add(m)
+                    # Plan — мост для API plans (планы агента во фронтенде)
+                    from app.models.plan import Plan
+                    desc = msg.content[:150] + "..." if len(msg.content) > 150 else msg.content
+                    session.add(Plan(
+                        agent_id=agent_id,
+                        description=desc.strip() or "Участие в обсуждении",
+                        status="done",
+                    ))
                     session.commit()
                 except Exception as e:
-                    logger.warning("orchestration SQL Memory write failed: %s", e)
+                    logger.warning("orchestration SQL Memory/Plan write failed: %s", e)
                     session.rollback()
 
             payload = {
