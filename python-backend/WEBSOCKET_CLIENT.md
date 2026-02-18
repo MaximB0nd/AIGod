@@ -281,7 +281,7 @@ type ChatMessage = {
     message?: string;
     id?: string;
     text?: string;
-    sender?: 'user' | 'agent' | 'system';
+    sender?: string;  // "user" | имя агента | "🎭 Рассказчик Нарратор" | "📊 Сводка Суммаризатор" | "Система"
     agentId?: string | null;
     timestamp?: string;
     agentResponse?: string | null;
