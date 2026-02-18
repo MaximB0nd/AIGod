@@ -400,10 +400,11 @@ def get_context_memory(
 @router.post("/orchestration/start")
 async def start_orchestration(room: Room = Depends(get_room_for_user)):
     """
-    Запустить оркестрацию для комнаты.
-    Работает только для комнат с orchestration_type != "single" (circular, narrator, full_context).
-    Использует OrchestrationClient.start().
+    Подготовка оркестрации. С pipeline executor оркестрация запускается при каждом сообщении.
+    Проверяет, что компоненты (chat_service, strategy) создаются успешно.
     """
+    from app.services.orchestration_service import create_pipeline_components
+
     orchestration_type = getattr(room, "orchestration_type", None) or "single"
     if orchestration_type == "single":
         raise HTTPException(
@@ -415,20 +416,20 @@ async def start_orchestration(room: Room = Depends(get_room_for_user)):
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Добавьте агентов в комнату перед запуском оркестрации",
         )
-    client = await registry.get_or_start(room)
-    if client:
-        return {"status": "started", "roomId": room.id, "orchestration_type": orchestration_type}
+    components = create_pipeline_components(room)
+    if components:
+        return {"status": "ready", "roomId": room.id, "orchestration_type": orchestration_type}
     raise HTTPException(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        detail="Не удалось создать оркестрацию",
+        detail="Не удалось создать компоненты оркестрации",
     )
 
 
 @router.post("/orchestration/stop")
 async def stop_orchestration(room: Room = Depends(get_room_for_user)):
     """
-    Остановить оркестрацию для комнаты.
-    Использует OrchestrationClient.stop().
+    Остановить оркестрацию. С pipeline executor нет long-running процесса —
+    этот эндпоинт сохранён для совместимости.
     """
     await registry.stop_room(room.id)
     return {"status": "stopped", "roomId": room.id}

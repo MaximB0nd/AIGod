@@ -105,18 +105,16 @@ def test_send_message_calls_llm_for_single_mode(
     assert call_args[1].get("room") == room
 
 
-@patch("app.services.orchestration_background.registry")
+@patch("app.services.orchestration_background.run_pipeline_executor", new_callable=AsyncMock)
 def test_send_message_uses_orchestration_for_circular_mode(
-    mock_registry,
+    mock_run_pipeline,
     client: TestClient,
     auth_headers: dict,
     room_with_agent_circular,
 ):
-    """В режиме circular POST message кладёт сообщение в оркестрацию, не вызывает get_agent_response."""
+    """В режиме circular POST message запускает pipeline executor, не вызывает get_agent_response."""
     room, agent = room_with_agent_circular
-    mock_client = MagicMock()
-    mock_client.enqueue_user_message = AsyncMock()
-    mock_registry.get_or_start = AsyncMock(return_value=mock_client)
+    mock_run_pipeline.return_value = True
 
     with patch("app.routers.room_agents.get_agent_response", return_value="Ответ агента") as mock_llm:
         response = client.post(
@@ -126,7 +124,10 @@ def test_send_message_uses_orchestration_for_circular_mode(
         )
 
     assert response.status_code == 200
-    mock_registry.get_or_start.assert_called_once()
-    mock_client.enqueue_user_message.assert_called_once_with(room.id, "Обсудим тему", "user")
+    mock_run_pipeline.assert_called_once()
+    call_args, call_kw = mock_run_pipeline.call_args
+    assert call_args[0] == room.id
+    assert call_args[1] == "Обсудим тему"
+    assert call_args[2] == "user"
     mock_llm.assert_not_called()
     assert response.json().get("agentResponse") is None

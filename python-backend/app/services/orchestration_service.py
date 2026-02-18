@@ -126,3 +126,60 @@ def create_orchestration_client(room) -> Optional[OrchestrationClient]:
     client.set_strategy(strategy)
     logger.info("create_orchestration_client room_id=%s type=%s strategy=%s agents=%s", room.id, orchestration_type, strategy.__class__.__name__, agent_names)
     return client
+
+
+def create_pipeline_components(room):
+    """
+    Создать компоненты для PipelineExecutor: chat_service, strategy, context.
+
+    Используется как единая точка входа для pipeline — без long-running client.
+    """
+    orchestration_type = getattr(room, "orchestration_type", None) or "single"
+    if orchestration_type == "single":
+        return None
+
+    agent_names = [a.name for a in room.agents]
+    if not agent_names:
+        return None
+
+    try:
+        yandex_client = YandexAgentClient()
+    except Exception as e:
+        logger.warning("create_pipeline_components YandexAgentClient fail: %s", e)
+        return None
+
+    base_adapter = YandexAgentAdapter(yandex_client)
+    base_adapter.register_agents_from_room(room.agents)
+    adapter = _RelationshipEnhancingAdapter(base_adapter, room)
+
+    from app.services.agents_orchestration.context import ConversationContext
+    context = ConversationContext(participants=agent_names.copy())
+
+    if orchestration_type == "circular":
+        strategy = CircularStrategy(context, max_rounds=5)
+    elif orchestration_type == "narrator":
+        strategy = NarratorStrategy(
+            context,
+            narrator_agent=agent_names[0],
+            story_topic=room.description or "История",
+            narrator_interval=2,
+        )
+    elif orchestration_type == "full_context":
+        strategy = FullContextStrategy(
+            context,
+            initial_prompt=room.description or "Обсуждение",
+            summary_agent=agent_names[-1] if agent_names else None,
+            max_rounds=2,
+            agents_per_round=2,
+        )
+    else:
+        return None
+
+    strategy.context = context
+    strategy.chat_service = adapter
+    return {
+        "chat_service": adapter,
+        "strategy": strategy,
+        "context": context,
+        "agents": agent_names,
+    }

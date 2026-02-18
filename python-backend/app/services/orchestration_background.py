@@ -1,12 +1,10 @@
 """
-Фоновый запуск оркестрации для комнат.
+Оркестрация через единый pipeline executor.
 
-При первом сообщении в комнате с orchestration_type != "single"
-создаётся OrchestrationClient, запускается в фоне, сообщения пользователя
-попадают в user_message_queue (UserMessageEvent); ответы агентов сохраняются
-в БД и рассылаются via WebSocket.
+Каждый запрос ОБЯЗАТЕЛЬНО проходит:
+RETRIEVE_MEMORY → PLAN → DISCUSS → SYNTHESIZE → STORE_MEMORY → UPDATE_GRAPH → DONE
 
-Pipeline: User → POST /messages → enqueue_user_message → strategy → agents reply → broadcast
+Pipeline: User → POST /messages → run_pipeline_executor → этапы → broadcast
 """
 import asyncio
 import logging
@@ -22,6 +20,7 @@ from app.services.agents_orchestration import OrchestrationClient
 from app.services.agents_orchestration.message import Message
 from app.services.agents_orchestration.message_type import MessageType
 from app.services.orchestration_service import create_orchestration_client
+from app.services.orchestration.executor import PipelineExecutor
 from app.ws import broadcast_chat_message
 
 logger = logging.getLogger("aigod.orchestration")
@@ -67,8 +66,7 @@ def _agent_id_by_name(agents: list[Agent], name: str) -> Optional[int]:
 
 
 def _make_message_callback(room_id: int, agents: list[Agent]):
-    """Создать колбэк для сохранения, рассылки, памяти и обновления графа отношений."""
-
+    """Колбэк: сохранить в БД и broadcast. Память и граф — в этапах pipeline."""
     async def on_message(msg: Message) -> None:
         if msg.type not in (MessageType.AGENT, MessageType.NARRATOR, MessageType.SUMMARIZED):
             logger.debug("orchestration on_message room_id=%s skip type=%s", room_id, msg.type)
@@ -103,60 +101,6 @@ def _make_message_callback(room_id: int, agents: list[Agent]):
             raise
         finally:
             session.close()
-
-        # Обновить граф отношений (эвристический анализатор)
-        try:
-            from app.models.room import Room
-            from app.database.sqlite_setup import SessionLocal
-            from app.services.relationship_model_service import get_relationship_manager
-            s = SessionLocal()
-            try:
-                room = s.query(Room).filter(Room.id == room_id).first()
-                if room and room.agents:
-                    mgr = get_relationship_manager(room)
-                    agent_names = [a.name for a in room.agents]
-                    await mgr.process_message(
-                        message=msg.content,
-                        sender=msg.sender,
-                        participants=agent_names,
-                    )
-                    logger.debug("orchestration graph updated room_id=%s sender=%s", room_id, msg.sender)
-            finally:
-                s.close()
-        except Exception as e:
-            logger.debug("orchestration graph update failed: %s", e)
-
-        # Сохранить в память (user_msg + agent_msg) если есть последний запрос пользователя
-        try:
-            client = registry.get(room_id)
-            if client and client.context:
-                from app.services.room_services_registry import get_memory_integration
-                from app.services.context_memory.models import ImportanceLevel
-                from app.models.room import Room
-                s2 = SessionLocal()
-                try:
-                    room = s2.query(Room).filter(Room.id == room_id).first()
-                    if room:
-                        integration = get_memory_integration(room)
-                        if integration:
-                            user_msgs = [
-                                m for m in client.context.history
-                                if m.type == MessageType.USER or (m.sender or "").lower() in ("user", "пользователь")
-                            ]
-                            last_user = user_msgs[-1].content if user_msgs else None
-                            if last_user:
-                                text = f"User: {last_user}\n{msg.sender}: {msg.content}"
-                                await integration.memory_manager.add_message(
-                                    content=text,
-                                    sender=msg.sender,
-                                    importance=ImportanceLevel.MEDIUM,
-                                    metadata={"room_id": room_id, "pipeline": "orchestration"},
-                                )
-                                logger.debug("orchestration memory stored room_id=%s", room_id)
-                finally:
-                    s2.close()
-        except Exception as e:
-            logger.debug("orchestration memory store failed: %s", e)
 
     return on_message
 
@@ -244,21 +188,14 @@ class OrchestrationRegistry:
 registry = OrchestrationRegistry()
 
 
-async def enqueue_room_run(room_id: int, text: str, sender: str = "user", room=None) -> bool:
+async def run_pipeline_executor(room_id: int, text: str, sender: str = "user", room=None) -> bool:
     """
-    Триггер оркестрации: поставить сообщение пользователя в очередь.
+    Единая точка входа: запустить pipeline executor.
 
-    Вызывать после сохранения сообщения в БД. Запускает оркестратор (если ещё не запущен)
-    и кладёт UserMessageEvent в очередь. Без этого вызова агенты не получат сообщение.
-
-    Args:
-        room_id: ID комнаты
-        text: Текст сообщения
-        sender: Отправитель (по умолчанию "user")
-        room: Объект Room (опционально, для избежания доп. запроса)
+    Каждый запрос ОБЯЗАТЕЛЬНО проходит: RETRIEVE_MEMORY → PLAN → DISCUSS → SYNTHESIZE → STORE_MEMORY → UPDATE_GRAPH.
 
     Returns:
-        True если оркестрация активна и сообщение в очереди, False иначе (single mode).
+        True если pipeline запущен, False иначе (single mode).
     """
     if room is None:
         from app.database.sqlite_setup import SessionLocal
@@ -274,13 +211,41 @@ async def enqueue_room_run(room_id: int, text: str, sender: str = "user", room=N
 
     orchestration_type = getattr(room, "orchestration_type", None) or "single"
     if orchestration_type == "single":
-        logger.debug("enqueue_room_run room_id=%s skip (single)", room_id)
+        logger.debug("run_pipeline_executor room_id=%s skip (single)", room_id)
         return False
 
-    client = await registry.get_or_start(room)
-    if client:
-        await client.enqueue_user_message(room_id, text, sender)
-        logger.info("enqueue_room_run room_id=%s enqueued text_len=%d sender=%s", room_id, len(text), sender)
-        return True
-    logger.warning("enqueue_room_run room_id=%s client=None, не удалось поставить в очередь", room_id)
-    return False
+    from app.services.orchestration_service import create_pipeline_components
+    components = create_pipeline_components(room)
+    if not components:
+        logger.warning("run_pipeline_executor room_id=%s components=None", room_id)
+        return False
+
+    agents = list(room.agents)
+    callback = _make_message_callback(room_id, agents)
+
+    # Загрузить историю в context
+    history = _load_room_history(room_id, agents)
+    for msg in history:
+        components["context"].add_message(msg)
+
+    executor = PipelineExecutor(
+        room=room,
+        chat_service=components["chat_service"],
+        strategy=components["strategy"],
+        agents=components["agents"],
+        on_message=callback,
+        max_discuss_rounds=5,
+    )
+
+    asyncio.create_task(executor.run(text, sender))
+    logger.info("run_pipeline_executor room_id=%s STARTED text_len=%d sender=%s", room_id, len(text), sender)
+    return True
+
+
+async def enqueue_room_run(room_id: int, text: str, sender: str = "user", room=None) -> bool:
+    """
+    Триггер оркестрации: запустить pipeline executor.
+
+    Вызывать после сохранения сообщения в БД. Pipeline выполняется в фоне.
+    """
+    return await run_pipeline_executor(room_id, text, sender, room)
