@@ -18,15 +18,22 @@ class YandexAgentClient:
     def __init__(self, folder_id: str = None, api_key: str = None):
         self.folder_id = folder_id or YANDEX_CLOUD_FOLDER
         self.api_key = api_key or YANDEX_CLOUD_API_KEY
+        iam_token = os.getenv("YANDEX_IAM_TOKEN", "").strip()
 
-        if not self.folder_id or not self.api_key:
-            raise ValueError("YANDEX_CLOUD_FOLDER и YANDEX_CLOUD_API_KEY должны быть заданы")
+        # IAM токен приоритетнее (работает с yc iam create-token и сервисным аккаунтом)
+        if iam_token:
+            auth_value = iam_token if iam_token.startswith("Bearer ") else f"Bearer {iam_token}"
+        elif self.api_key:
+            auth_value = self.api_key.replace("Api-Key ", "").strip()
+        else:
+            raise ValueError("YANDEX_CLOUD_FOLDER и (YANDEX_CLOUD_API_KEY или YANDEX_IAM_TOKEN) должны быть заданы")
 
-        clean_api_key = self.api_key.replace("Api-Key ", "").strip()
+        if not self.folder_id:
+            raise ValueError("YANDEX_CLOUD_FOLDER должен быть задан")
 
         self.sdk = AIStudio(
             folder_id=self.folder_id,
-            auth=clean_api_key
+            auth=auth_value
         )
 
         self.sessions: Dict[str, List[Tuple[str, str]]] = {}
