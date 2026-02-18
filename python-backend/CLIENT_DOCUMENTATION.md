@@ -266,6 +266,7 @@ ws://localhost:8000/api/rooms/{roomId}/graph?token={JWT}
 
 ## 10. Связанные документы
 
-- **CONNECTION.md** — подключение фронтенда, CORS, примеры.
+- **CLIENT_GUIDE.md** — полное руководство для клиента (подключение, примеры, troubleshooting).
+- **CONNECTION.md** — краткое подключение, CORS.
 - **ORCHESTRATION_FIXES.md** — детали исправлений оркестрации.
 - **WEBSOCKET_CLIENT.md** — детали WebSocket.

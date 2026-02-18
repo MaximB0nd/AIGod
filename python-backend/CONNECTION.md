@@ -1,6 +1,6 @@
 # Подключение фронтенда к AIgod API
 
-Краткое руководство по подключению клиента к бэкенду.
+Краткое руководство. Полная документация — **CLIENT_GUIDE.md** (подключение, API, WebSocket, примеры, troubleshooting).
 
 ---
 
@@ -110,7 +110,7 @@ ws://localhost:8000/api/rooms/{roomId}/graph?token={JWT}
 
 Подробнее: `WEBSOCKET_CLIENT.md`.
 
-**Полная документация для клиента:** `CLIENT_DOCUMENTATION.md` — структура API, эндпоинты, изменения, логи.
+**Полное руководство:** `CLIENT_GUIDE.md` — пошаговое подключение, все эндпоинты, WebSocket, примеры кода, troubleshooting.
 
 ---
 
