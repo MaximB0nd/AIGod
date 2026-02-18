@@ -1,0 +1,120 @@
+.layout {
+  display: flex;
+  height: 100vh;
+  width: 100%;
+  overflow: hidden;
+  position: relative;
+  padding: 20px;
+  gap: 12px;
+  box-sizing: border-box;
+  background: var(--color-bg);
+}
+
+.sidebarWrapper {
+  width: 360px;
+  min-width: 360px;
+  flex-shrink: 0;
+  overflow: hidden;
+  transition: width 0.25s ease, min-width 0.25s ease;
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-bento-lg);
+  background: var(--tg-sidebar-bg);
+  border: 1px solid var(--tg-border);
+  container-type: inline-size;
+  container-name: sidebar;
+}
+
+.sidebarWrapper.resizing {
+  transition: none;
+}
+
+.layout.resizing {
+  user-select: none;
+  cursor: col-resize;
+}
+
+.sidebarWrapper.collapsed {
+  width: 0;
+  min-width: 0;
+}
+
+.resizeHandle {
+  width: 4px;
+  flex-shrink: 0;
+  cursor: col-resize;
+  background: transparent;
+  position: relative;
+}
+
+.resizeHandle::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 4px;
+  height: 48px;
+  background: var(--tg-border);
+  border-radius: 2px;
+  transition: background 0.15s;
+}
+
+.resizeHandle:hover::after,
+.resizeHandle:active::after {
+  background: var(--color-accent-orange);
+}
+
+.mainWrapper {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-bento-lg);
+  background: var(--tg-chat-bg);
+  border: 1px solid var(--tg-border);
+}
+
+.rightPanelWrapper {
+  width: 320px;
+  min-width: 320px;
+  flex-shrink: 0;
+  overflow: hidden;
+  transition: width 0.25s ease, min-width 0.25s ease;
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-bento-lg);
+  background: var(--tg-sidebar-bg);
+  border: 1px solid var(--tg-border);
+}
+
+.rightPanelWrapper.resizing {
+  transition: none;
+}
+
+.rightPanelWrapper.rightPanelCollapsed {
+  width: 0;
+  min-width: 0;
+}
+
+.rightPanel {
+  height: 100%;
+  padding: 16px;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.rightPanelPlaceholder {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--tg-muted);
+}
+
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  color: var(--tg-muted);
+  font-size: 1rem;
+}

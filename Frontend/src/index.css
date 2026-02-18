@@ -1,0 +1,70 @@
+/**
+ * Глобальные стили и CSS-переменные
+ * Тема: Bento-стиль (закруглённые края, мягкие тени)
+ */
+
+:root {
+  --color-bg: #ffffff;
+  --color-surface: #ffffff;
+  --color-border: #e8e8ed;
+  --color-text: #1d1d1f;
+  --color-muted: #6e6e73;
+  --color-accent: #084B83;
+  --color-accent-hover: #0a5a9e;
+  --color-blue: #7eb8da;
+  --color-blue-light: #e8f4fd;
+  --color-blue-lighter: #f0f7ff;
+  --color-yellow: #ffbf58;
+  --color-peach: #ffbf58;
+  --color-coral: #FD5917;
+  --color-accent-orange: #FD5917;
+  --color-accent-orange-hover: #e64d0f;
+  --shadow-soft: 0 2px 8px rgba(0, 0, 0, 0.04);
+  --shadow-bento: 0 4px 24px rgba(0, 0, 0, 0.06);
+  --shadow-bento-lg: 0 8px 40px rgba(0, 0, 0, 0.08);
+  --radius-sm: 12px;
+  --radius-card: 20px;
+  --radius-lg: 24px;
+  --radius-xl: 28px;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-display: 'Manrope', var(--font-sans);
+
+  /* Bento theme */
+  --tg-sidebar-bg: #ffffff;
+  --tg-chat-bg: #ffffff;
+  --tg-border: #e8e8ed;
+  --tg-text: #1d1d1f;
+  --tg-muted: #6e6e73;
+  --tg-accent: #084B83;
+  --tg-hover: rgba(0, 0, 0, 0.04);
+  --tg-active: rgba(8, 75, 131, 0.08);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  font-family: var(--font-sans);
+  background: var(--color-bg);
+  color: var(--color-text);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+#root {
+  height: 100%;
+  overflow: hidden;
+}
