@@ -111,10 +111,20 @@ def _update_room_services_on_message(
             except Exception as e:
                 logger.warning("Memory update failed: %s", e)
 
-        # SQL Memory — мост для API keyMemories
+        # SQL Memory и Plan — мост для API keyMemories и plans
         agent_obj = next((a for a in room.agents if a.name == agent_name), None)
         if agent_obj and agent_response:
             _write_agent_memory_to_sql(db, room_id, agent_obj.id, agent_name, agent_response, importance=0.6)
+            desc = agent_response[:150] + "..." if len(agent_response) > 150 else agent_response
+            try:
+                db.add(Plan(
+                    agent_id=agent_obj.id,
+                    description=desc.strip() or "Ответ в диалоге",
+                    status="done",
+                ))
+                db.commit()
+            except Exception:
+                db.rollback()
 
         # Эмоции
         emo = get_emotional_integration(room)
@@ -142,6 +152,32 @@ def get_room_agents(room: Room = Depends(get_room_for_user)):
     )
 
 
+def _ensure_room_relationships_exist(room: Room, db: Session) -> None:
+    """Создать строки Relationship для всех пар агентов (0.0), если их ещё нет."""
+    agents = list(room.agents)
+    if len(agents) < 2:
+        return
+    ids = sorted(a.id for a in agents)
+    for i, a1 in enumerate(ids):
+        for a2 in ids[i + 1 :]:
+            exists = db.query(Relationship).filter(
+                Relationship.room_id == room.id,
+                Relationship.agent1_id == a1,
+                Relationship.agent2_id == a2,
+            ).first()
+            if not exists:
+                db.add(Relationship(
+                    room_id=room.id,
+                    agent1_id=a1,
+                    agent2_id=a2,
+                    sympathy_value=0.0,
+                ))
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+
+
 @router.get("/agents/{agent_id}", response_model=AgentFullOut)
 def get_room_agent(
     agent_id: int,
@@ -149,12 +185,13 @@ def get_room_agent(
     db: Session = Depends(get_db),
 ):
     """Полная информация по агенту: характер, воспоминания, планы, взаимоотношения."""
+    _ensure_room_relationships_exist(room, db)
     agent = _agent_in_room(room, agent_id)
     if not agent:
         raise HTTPException(status_code=404, detail="Агент не найден в этой комнате")
 
     memories = db.query(Memory).filter(Memory.agent_id == agent_id).limit(10).all()
-    plans = db.query(Plan).filter(Plan.agent_id == agent_id).all()
+    plans = db.query(Plan).filter(Plan.agent_id == agent_id).order_by(Plan.created_at.desc()).limit(20).all()
 
     # Взаимоотношения: ребра, где agent_id участвует как agent1 или agent2
     room_agent_ids = {a.id for a in room.agents}
@@ -378,6 +415,7 @@ def get_relationships(
     db: Session = Depends(get_db),
 ):
     """Взаимоотношения агентов комнаты."""
+    _ensure_room_relationships_exist(room, db)
     nodes = [
         {
             "id": str(a.id),

@@ -72,15 +72,42 @@ def get_relationship_manager(room) -> RelationshipManager:
 async def sync_graph_to_db_and_broadcast(room, manager: RelationshipManager) -> None:
     """
     Сохранить граф RelationshipManager в БД и разослать обновления через WebSocket.
-    Вызывать после обновления графа (например, после _stage_update_graph).
+    Создаёт строки для ВСЕХ пар агентов комнаты (0.0 если нет данных) — чтобы фронтенд видел отношения.
     """
     from app.ws import broadcast_graph_edge
 
     room_id = room.id
-    name_to_id = {a.name: a.id for a in room.agents}
+    agents = list(room.agents)
+    name_to_id = {a.name: a.id for a in agents}
+    agent_ids = list(name_to_id.values())
     session: Session = SessionLocal()
     seen_pairs: set[tuple[int, int]] = set()
     try:
+        # 1. Сначала создаём/обновляем все пары агентов (чтобы фронтенд видел отношения даже без сообщений)
+        for i, a1 in enumerate(agent_ids):
+            for a2 in agent_ids[i + 1 :]:
+                if a1 == a2:
+                    continue
+                a_lo, a_hi = min(a1, a2), max(a1, a2)
+                if (a_lo, a_hi) in seen_pairs:
+                    continue
+                seen_pairs.add((a_lo, a_hi))
+                db_rel = session.query(DBRelationship).filter(
+                    DBRelationship.room_id == room_id,
+                    DBRelationship.agent1_id == a_lo,
+                    DBRelationship.agent2_id == a_hi,
+                ).first()
+                if not db_rel:
+                    session.add(DBRelationship(
+                        room_id=room_id,
+                        agent1_id=a_lo,
+                        agent2_id=a_hi,
+                        sympathy_value=0.0,
+                        interaction_count=0,
+                    ))
+
+        # 2. Обновляем значения из графа (анализ сообщений)
+        graph_seen: set[tuple[int, int]] = set()
         for from_name, targets in manager.graph.edges.items():
             from_id = name_to_id.get(from_name)
             if not from_id:
@@ -90,9 +117,9 @@ async def sync_graph_to_db_and_broadcast(room, manager: RelationshipManager) -> 
                 if not to_id or from_id == to_id:
                     continue
                 a1, a2 = min(from_id, to_id), max(from_id, to_id)
-                if (a1, a2) in seen_pairs:
+                if (a1, a2) in graph_seen:
                     continue
-                seen_pairs.add((a1, a2))
+                graph_seen.add((a1, a2))
                 val = (manager.get_relationship_value(from_name, to_name) + manager.get_relationship_value(to_name, from_name)) / 2.0
                 db_rel = session.query(DBRelationship).filter(
                     DBRelationship.room_id == room_id,
