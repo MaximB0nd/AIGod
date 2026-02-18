@@ -5,6 +5,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { fetchRoom, updateRoom } from '@/api/rooms'
+import { updateRoomSpeed } from '@/api/simulation'
 import { fetchAgents } from '@/api/agents'
 import { useChat } from '@/context/ChatContext'
 import { AgentProfileModal } from '@/components/AgentProfileModal'
@@ -109,7 +110,7 @@ export function GroupInfoModal({ isOpen, onClose, chat }: GroupInfoModalProps) {
       if (!chat?.id || speedLoading) return
       setSpeedLoading(true)
       try {
-        await updateRoom(chat.id, { speed: newSpeed })
+        await updateRoomSpeed(chat.id, newSpeed)
         setSpeed(newSpeed)
         setRoom((prev) => (prev ? { ...prev, speed: newSpeed } : null))
         updateRoomSpeedFromExternal(chat.id, newSpeed)
