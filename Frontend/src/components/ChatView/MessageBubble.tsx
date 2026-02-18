@@ -19,7 +19,7 @@ export function MessageBubble({ message, character, isOutgoing, onAvatarClick }:
   const time = formatChatTime(message.timestamp)
   /** Для спецтипов (🎭 Рассказчик, 📊 Суммаризатор, Система) и имён агентов — показываем sender */
   const authorName = isOutgoing ? 'Вы' : (character?.name ?? (message.sender && typeof message.sender === 'string' ? message.sender : 'Агент'))
-  const { playingMessageId, play, stop } = useTts()
+  const { playingMessageId, ttsAvailable, play, stop } = useTts()
   const hasContent = Boolean(message.content?.trim())
   const isPlaying = playingMessageId === message.id
 
@@ -69,7 +69,7 @@ export function MessageBubble({ message, character, isOutgoing, onAvatarClick }:
         <div className={styles.bubbleHeader}>
           <span className={styles.author}>{authorName}</span>
           <span className={styles.time}>{time}</span>
-          {hasContent && (
+          {hasContent && ttsAvailable && (
             <button
               type="button"
               className={styles.ttsBtn}

@@ -1,21 +1,39 @@
 /**
  * Глобальное состояние text-to-speech.
- * Воспроизведение не останавливается при обновлении ленты (новые сообщения).
- * При выборе другого сообщения — предыдущее останавливается, проигрывается новое.
- * После окончания сообщения автоматически проигрывается следующее в ленте.
+ * Использует нативный Web Speech API — бесплатно, без зависимостей, работает сразу.
+ *
+ * - Воспроизведение не останавливается при обновлении ленты
+ * - При выборе другого сообщения — предыдущее останавливается, проигрывается новое
+ * - После окончания сообщения автоматически проигрывается следующее в ленте
  */
 
-import { createContext, useContext, useState, useCallback, useRef, type ReactNode } from 'react'
+import { createContext, useContext, useState, useCallback, useRef, useEffect, type ReactNode } from 'react'
 import { useChat } from '@/context/ChatContext'
 import type { FeedItem } from '@/types/chat'
 
 interface TtsContextValue {
   playingMessageId: string | null
+  ttsAvailable: boolean
   play: (messageId: string, text: string) => void
   stop: () => void
 }
 
 const TtsContext = createContext<TtsContextValue | null>(null)
+
+/** Milena в конце — плохо говорит в Safari. Приоритет: Yuri, Katya, Irina, Google, Yandex */
+const PREFERRED_RU_VOICES = ['Yuri', 'Katya', 'Microsoft Irina', 'Google русский', 'Yandex', 'Milena']
+
+function getBestRussianVoice(): SpeechSynthesisVoice | null {
+  const voices = speechSynthesis.getVoices()
+  const ru = voices.filter((v) => v.lang.startsWith('ru'))
+  if (ru.length === 0) return null
+  const lower = (s: string) => s.toLowerCase()
+  for (const name of PREFERRED_RU_VOICES) {
+    const found = ru.find((v) => lower(v.name).includes(lower(name)) || lower(name).includes(lower(v.name)))
+    if (found) return found
+  }
+  return ru[0]
+}
 
 function getNextMessage(feed: FeedItem[], currentMessageId: string): { id: string; text: string } | null {
   const messageItems = feed.filter(
@@ -31,9 +49,24 @@ function getNextMessage(feed: FeedItem[], currentMessageId: string): { id: strin
 
 export function TtsProvider({ children }: { children: ReactNode }) {
   const [playingMessageId, setPlayingMessageId] = useState<string | null>(null)
+  const [ttsAvailable, setTtsAvailable] = useState(false)
+  const voiceRef = useRef<SpeechSynthesisVoice | null>(null)
   const { feed } = useChat()
   const feedRef = useRef(feed)
   feedRef.current = feed
+
+  useEffect(() => {
+    if (!('speechSynthesis' in window)) return
+    setTtsAvailable(true)
+    const check = () => {
+      voiceRef.current = getBestRussianVoice()
+    }
+    check()
+    speechSynthesis.onvoiceschanged = check
+    return () => {
+      speechSynthesis.onvoiceschanged = null
+    }
+  }, [])
 
   const stop = useCallback(() => {
     speechSynthesis.cancel()
@@ -42,14 +75,18 @@ export function TtsProvider({ children }: { children: ReactNode }) {
 
   const play = useCallback((messageId: string, text: string) => {
     const trimmed = text?.trim()
-    if (!trimmed) return
+    if (!trimmed || !ttsAvailable) return
 
     speechSynthesis.cancel()
     setPlayingMessageId(messageId)
 
     const utterance = new SpeechSynthesisUtterance(trimmed)
     utterance.lang = 'ru-RU'
-    utterance.rate = 0.95
+    utterance.rate = 0.92
+    utterance.pitch = 0.92
+    const voice = voiceRef.current ?? getBestRussianVoice()
+    if (voice) utterance.voice = voice
+
     utterance.onend = () => {
       const next = getNextMessage(feedRef.current, messageId)
       if (next) {
@@ -59,11 +96,12 @@ export function TtsProvider({ children }: { children: ReactNode }) {
       }
     }
     utterance.onerror = () => setPlayingMessageId(null)
+
     speechSynthesis.speak(utterance)
-  }, [])
+  }, [ttsAvailable])
 
   return (
-    <TtsContext.Provider value={{ playingMessageId, play, stop }}>
+    <TtsContext.Provider value={{ playingMessageId, ttsAvailable, play, stop }}>
       {children}
     </TtsContext.Provider>
   )
