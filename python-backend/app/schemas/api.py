@@ -91,10 +91,18 @@ class AgentCreateIn(BaseModel):
     agentId: Optional[int] = None  # если указан — добавить существующего агента в комнату
 
 
+class AgentRelationshipOut(BaseModel):
+    """Связь агента с другим агентом."""
+    agentId: str
+    agentName: str
+    sympathyLevel: float
+
+
 class AgentFullOut(AgentSummaryOut):
     character: str
     keyMemories: list[dict] = []
     plans: list[dict] = []
+    relationships: list[AgentRelationshipOut] = []
 
 
 class AgentsListOut(BaseModel):

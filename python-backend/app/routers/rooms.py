@@ -6,8 +6,10 @@ from fastapi import APIRouter, Depends, HTTPException, status
 logger = logging.getLogger("aigod.rooms")
 from sqlalchemy.orm import Session
 
+from app.constants import NARRATOR_AGENT_NAME, NARRATOR_PERSONALITY
 from app.database.sqlite_setup import get_db
 from app.dependencies import get_current_user, get_room_for_user
+from app.models.agent import Agent
 from app.models.event import Event
 from app.models.message import Message
 from app.models.relationship import Relationship
@@ -39,13 +41,35 @@ def list_rooms(
     )
 
 
+def _ensure_narrator_agent_in_room(room: Room, current_user: User, db: Session) -> None:
+    """Добавить агента «Рассказчик» в комнату при circular/narrator/full_context (видимый агент)."""
+    ot = getattr(room, "orchestration_type", None) or "single"
+    if ot not in ("circular", "narrator", "full_context"):
+        return
+    if any(a.name == NARRATOR_AGENT_NAME for a in room.agents):
+        return
+    agent = Agent(
+        name=NARRATOR_AGENT_NAME,
+        personality=NARRATOR_PERSONALITY,
+        avatar_url=None,
+        state_vector={"mood": "neutral", "mood_level": 0.5},
+        user_id=current_user.id,
+    )
+    db.add(agent)
+    db.flush()
+    room.agents.append(agent)
+    db.commit()
+    db.refresh(room)
+    logger.info("Added Narrator agent to room_id=%s", room.id)
+
+
 @router.post("", response_model=RoomOut)
 def create_room(
     data: RoomCreateIn,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Создать комнату. Клиент выбирает orchestration_type при создании."""
+    """Создать комнату. Клиент выбирает orchestration_type при создании. При narrator/full_context/circular — автоматически добавляется агент «Рассказчик» (пользователь его видит)."""
     room = Room(
         name=data.name,
         description=data.description,
@@ -56,8 +80,10 @@ def create_room(
     db.add(room)
     db.commit()
     db.refresh(room)
-    logger.info("POST /rooms created room_id=%s name=%s", room.id, room.name)
-    return RoomOut.from_room(room)
+    _ensure_narrator_agent_in_room(room, current_user, db)
+    db.refresh(room)
+    logger.info("POST /rooms created room_id=%s name=%s orchestration=%s", room.id, room.name, data.orchestration_type)
+    return RoomOut.from_room(room, agent_count=len(room.agents))
 
 
 @router.get("/{room_id}", response_model=RoomOut)

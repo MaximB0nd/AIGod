@@ -123,13 +123,30 @@ def get_room_agent(
     room: Room = Depends(get_room_for_user),
     db: Session = Depends(get_db),
 ):
-    """Полная информация по агенту."""
+    """Полная информация по агенту: характер, воспоминания, планы, взаимоотношения."""
     agent = _agent_in_room(room, agent_id)
     if not agent:
         raise HTTPException(status_code=404, detail="Агент не найден в этой комнате")
 
     memories = db.query(Memory).filter(Memory.agent_id == agent_id).limit(10).all()
     plans = db.query(Plan).filter(Plan.agent_id == agent_id).all()
+
+    # Взаимоотношения: ребра, где agent_id участвует как agent1 или agent2
+    room_agent_ids = {a.id for a in room.agents}
+    rels = db.query(Relationship).filter(
+        Relationship.room_id == room.id,
+        (Relationship.agent1_id == agent_id) | (Relationship.agent2_id == agent_id),
+    ).all()
+    relationships = []
+    for r in rels:
+        other_id = r.agent2_id if r.agent1_id == agent_id else r.agent1_id
+        if other_id in room_agent_ids:
+            other_agent = next((a for a in room.agents if a.id == other_id), None)
+            relationships.append({
+                "agentId": str(other_id),
+                "agentName": other_agent.name if other_agent else str(other_id),
+                "sympathyLevel": r.sympathy_value,
+            })
 
     return AgentFullOut(
         id=str(agent.id),
@@ -150,6 +167,7 @@ def get_room_agent(
             {"id": str(p.id), "description": p.description, "status": p.status}
             for p in plans
         ],
+        relationships=relationships,
     )
 
 

@@ -123,11 +123,11 @@ class CircularWithNarratorSummarizerStrategy(BaseStrategy):
 
             if self.include_system_messages:
                 system_msg = Message(
-                    content=f"=== Раунд {self.round_count} завершён ===",
+                    content="=== Обсуждение продолжается ===",
                     type=MessageType.SYSTEM,
                     sender="Система",
                     timestamp=datetime.now(),
-                    metadata={"round_completed": self.round_count},
+                    metadata={"cycle": self.round_count},
                 )
                 messages.append(system_msg)
         else:
@@ -218,7 +218,7 @@ class CircularWithNarratorSummarizerStrategy(BaseStrategy):
                 or self.context.get_memory("_user_message")
                 or ""
             )
-            prompt = f"""Сделай структурированную сводку этого раунда обсуждения.
+            prompt = f"""Сделай структурированную сводку этого этапа обсуждения.
 Запрос пользователя: {user_msg}
 
 Обсуждение:
@@ -229,7 +229,7 @@ class CircularWithNarratorSummarizerStrategy(BaseStrategy):
 2. **Agreements or consensus:**
 3. **Points of contention:**
 4. **Questions raised:**
-5. **Suggestions for next round:**"""
+5. **Suggestions for next step:**"""
             content = await self.chat_service(
                 self.summarizer_agent_name,
                 "summarizer_session",
@@ -262,7 +262,7 @@ class CircularWithNarratorSummarizerStrategy(BaseStrategy):
         )
         memory_ctx = self.context.get_memory("_memory_context") or ""
         prompt_parts = [
-            f"Ты {agent} в циркулярном разговоре. Текущий раунд: {self.round_count}.",
+            f"Ты {agent} в циркулярном разговоре.",
         ]
         if user_msg:
             prompt_parts.extend(

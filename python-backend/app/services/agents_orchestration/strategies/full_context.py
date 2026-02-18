@@ -17,18 +17,18 @@ class FullContextStrategy(BaseStrategy):
     def __init__(self, context: ConversationContext,
                  initial_prompt: str,
                  summary_agent: Optional[str] = None,
-                 max_rounds: int = 5,
-                 agents_per_round: int = 2,
+                 max_iterations: int = 5,
+                 agents_per_iteration: int = 2,
                  include_system_messages: bool = True):
         super().__init__(context)
         self.initial_prompt = initial_prompt
         self.summary_agent = summary_agent
-        self.max_rounds = max_rounds
-        self.agents_per_round = agents_per_round
+        self.max_iterations = max_iterations
+        self.agents_per_iteration = agents_per_iteration
         self.include_system_messages = include_system_messages
         
-        self.current_round = 0
-        self.round_responses: Dict[int, List[Message]] = {}
+        self.current_iteration = 0
+        self.iter_responses: Dict[int, List[Message]] = {}
         
         self.context.update_memory("full_context_prompt", initial_prompt)
         self.context.current_topic = initial_prompt[:100] + "..."
@@ -40,64 +40,65 @@ class FullContextStrategy(BaseStrategy):
                 type=MessageType.SYSTEM,
                 sender="system",
                 timestamp=datetime.now(),
-                metadata={"round": 0, "action": "init"}
+                metadata={"iteration": 0, "action": "init"}
             )
             self.context.add_message(system_msg)
         
         self.context.update_memory("initial_prompt", self.initial_prompt)
-        self.context.update_memory("full_context_rounds", [])
+        self.context.update_memory("full_context_iterations", [])
     
     async def tick(self, agents: List[str]) -> Optional[List[Message]]:
-        if not agents or self.current_round >= self.max_rounds:
+        discussion_agents = [a for a in agents if a != self.summary_agent] if self.summary_agent else agents
+        if not discussion_agents or self.current_iteration >= self.max_iterations:
             return None
         
         messages = []
-        round_agents = self._select_round_agents(agents)
-        round_context = await self._build_round_context()
+        iter_agents = self._select_iteration_agents(discussion_agents)
+        iter_context = await self._build_iteration_context()
         
-        for agent in round_agents:
-            response = await self._query_agent(agent, round_context)
+        for agent in iter_agents:
+            response = await self._query_agent(agent, iter_context)
             messages.append(response)
             
-            if self.current_round not in self.round_responses:
-                self.round_responses[self.current_round] = []
-            self.round_responses[self.current_round].append(response)
+            if self.current_iteration not in self.iter_responses:
+                self.iter_responses[self.current_iteration] = []
+            self.iter_responses[self.current_iteration].append(response)
         
         if self.summary_agent and len(messages) > 1:
-            summary = await self._summarize_round()
+            summary = await self._summarize_iteration()
             if summary:
                 messages.append(summary)
         
         if self.include_system_messages:
-            round_end_msg = Message(
-                content=f"=== Round {self.current_round + 1} completed ===",
+            iter_end_msg = Message(
+                content="=== Обсуждение продолжается ===",
                 type=MessageType.SYSTEM,
                 sender="system",
                 timestamp=datetime.now(),
-                metadata={"round_completed": self.current_round + 1}
+                metadata={"iteration_completed": self.current_iteration + 1}
             )
-            messages.append(round_end_msg)
+            messages.append(iter_end_msg)
         
-        self.current_round += 1
+        self.current_iteration += 1
         return messages
     
-    def _select_round_agents(self, agents: List[str]) -> List[str]:
-        start_idx = (self.current_round * self.agents_per_round) % len(agents)
+    def _select_iteration_agents(self, agents: List[str]) -> List[str]:
+        start_idx = (self.current_iteration * self.agents_per_iteration) % len(agents)
         selected = []
         
-        for i in range(self.agents_per_round):
+        for i in range(self.agents_per_iteration):
             idx = (start_idx + i) % len(agents)
             if agents[idx] not in selected:
                 selected.append(agents[idx])
         
         return selected
     
-    async def _build_round_context(self) -> str:
+    async def _build_iteration_context(self) -> str:
         context_parts = [f"Initial prompt: {self.initial_prompt}"]
         
-        if self.current_round > 0:
-            context_parts.append(f"\nPrevious round discussion:")
-            for msg in self.round_responses.get(self.current_round - 1, []):
+        if self.current_iteration > 0:
+            context_parts.append(f"\nPrevious discussion:")
+            for msg in self.iter_responses.get(self.current_iteration - 1, []):
                 context_parts.append(f"{msg.sender}: {msg.content}")
         
         key_points = self.context.get_memory("key_points", [])
@@ -106,7 +107,7 @@ class FullContextStrategy(BaseStrategy):
             for i, point in enumerate(key_points[-5:], 1):
                 context_parts.append(f"{i}. {point}")
         
-        context_parts.append(f"\nCurrent round: {self.current_round + 1}/{self.max_rounds}")
+        context_parts.append(f"\nCurrent step: {self.current_iteration + 1}/{self.max_iterations}")
         
         return "\n".join(context_parts)
     
@@ -134,25 +135,25 @@ class FullContextStrategy(BaseStrategy):
             sender=agent,
             timestamp=datetime.now(),
             metadata={
-                "round": self.current_round,
+                "iteration": self.current_iteration,
                 "agent_type": "participant"
             }
         )
     
-    async def _summarize_round(self) -> Optional[Message]:
+    async def _summarize_iteration(self) -> Optional[Message]:
         if not self.summary_agent:
             return None
         
-        round_msgs = self.round_responses.get(self.current_round, [])
-        if not round_msgs:
+        iter_msgs = self.iter_responses.get(self.current_iteration, [])
+        if not iter_msgs:
             return None
         
         discussion_text = "\n".join([
-            f"{msg.sender}: {msg.content}" for msg in round_msgs
+            f"{msg.sender}: {msg.content}" for msg in iter_msgs
         ])
         
         prompt = f"""
-        Summarize the key points from this round of discussion:
+        Summarize the key points from this discussion step:
         
         {discussion_text}
         
@@ -161,7 +162,7 @@ class FullContextStrategy(BaseStrategy):
         2. Agreements or consensus
         3. Points of contention
         4. Questions raised
-        5. Suggestions for next round
+        5. Suggestions for next step
         
         Keep the summary concise but comprehensive.
         """
@@ -181,14 +182,14 @@ class FullContextStrategy(BaseStrategy):
             sender=self.summary_agent,
             timestamp=datetime.now(),
             metadata={
-                "round": self.current_round,
-                "type": "round_summary"
+                "iteration": self.current_iteration,
+                "type": "iteration_summary"
             }
         )
     
     def _extract_key_points(self, summary: str):
         key_points = self.context.get_memory("key_points", [])
-        key_points.append(f"Round {self.current_round}: {summary[:200]}...")
+        key_points.append(f"Step {self.current_iteration}: {summary[:200]}...")
         self.context.update_memory("key_points", key_points)
     
     async def handle_user_message(self, message: str) -> List[Message]:
@@ -203,15 +204,15 @@ class FullContextStrategy(BaseStrategy):
         self.context.current_user_message = message
         self.context.update_memory("_user_message", message)
         self.context.update_memory("user_input", message)
-        self.context.update_memory("user_input_round", self.current_round)
+        self.context.update_memory("user_input_iteration", self.current_iteration)
 
         return [user_msg]
     
     def should_stop(self) -> bool:
-        return self.current_round >= self.max_rounds
+        return self.current_iteration >= self.max_iterations
     
-    def get_round_summaries(self) -> Dict[int, str]:
+    def get_iteration_summaries(self) -> Dict[int, str]:
         summaries = {}
-        for round_num, messages in self.round_responses.items():
-            summaries[round_num] = "\n".join([f"{m.sender}: {m.content}" for m in messages])
+        for iter_num, messages in self.iter_responses.items():
+            summaries[iter_num] = "\n".join([f"{m.sender}: {m.content}" for m in messages])
         return summaries

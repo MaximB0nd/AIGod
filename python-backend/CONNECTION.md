@@ -71,9 +71,19 @@ Authorization: Bearer <token>
 ### Создание комнаты и добавление агента
 1. `POST /api/auth/login` → сохранить `token`
 2. `POST /api/rooms` с `{ "name": "Моя комната", "orchestration_type": "single" }` → получить `roomId`
+   - При `orchestration_type`: `circular`, `narrator`, `full_context` — автоматически добавляется агент «Рассказчик»
 3. `GET /api/default-agents` → список шаблонов
 4. `GET /api/default-agents/1` → `{ name, character, avatar }` для формы
 5. `POST /api/rooms/{roomId}/agents` с `{ name, character, avatar }` → агент добавлен
+
+### Характеристики агента (всегда присутствуют в ответе)
+`GET /api/rooms/{roomId}/agents/{agentId}` возвращает:
+- `character` — описание личности
+- `keyMemories` — воспоминания (массив, может быть пустым)
+- `plans` — планы (массив, может быть пустым)
+- `relationships` — взаимоотношения с другими агентами (массив, может быть пустым)
+
+**Важно:** Все поля присутствуют при любом запросе. Для получения данных запрос должен содержать заголовок `Authorization: Bearer <token>`.
 
 ### Чат и WebSocket
 
@@ -135,8 +145,16 @@ const rooms = await fetch(`${API}/api/rooms`, {
   headers: { 'Authorization': `Bearer ${token}` }
 }).then(r => r.json());
 
-// Отправить сообщение в общий чат комнаты (ответят все агенты)
 const roomId = rooms.rooms[0]?.id;
+
+// Получить полные характеристики агента (воспоминания, планы, взаимоотношения)
+const agentId = 1;
+const agent = await fetch(`${API}/api/rooms/${roomId}/agents/${agentId}`, {
+  headers: { 'Authorization': `Bearer ${token}` }
+}).then(r => r.json());
+// agent.keyMemories, agent.plans, agent.relationships — всегда массивы
+
+// Отправить сообщение в общий чат комнаты (ответят все агенты)
 await fetch(`${API}/api/rooms/${roomId}/messages`, {
   method: 'POST',
   headers: {
