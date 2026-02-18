@@ -160,6 +160,7 @@ export function ChatView({ onAddCharacter, onToggleSidebar, sidebarCollapsed, on
 
   return (
     <div className={styles.chat}>
+      <div className={styles.chatContent}>
       <ChatHeader
         chat={activeChat}
         onClose={handleCloseChat}
@@ -208,6 +209,7 @@ export function ChatView({ onAddCharacter, onToggleSidebar, sidebarCollapsed, on
         onClose={() => setShowGroupInfo(false)}
         chat={activeChat}
       />
+      </div>
     </div>
   )
 }
