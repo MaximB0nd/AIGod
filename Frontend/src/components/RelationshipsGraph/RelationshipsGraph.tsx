@@ -9,9 +9,10 @@ import { useRef, useEffect, useState, useMemo, useCallback } from 'react'
 import ForceGraph2D from 'react-force-graph-2d'
 import type { ForceGraphMethods } from 'react-force-graph-2d'
 import { useRelationships, useRoomGraph } from '@/hooks'
+import { useChat } from '@/context/ChatContext'
 import type { RelationshipsResponse } from '@/api/agents'
-import { startOrchestration, stopOrchestration, updateRoomSpeed } from '@/api/simulation'
-import { fetchRoom } from '@/api/rooms'
+import { startOrchestration, stopOrchestration } from '@/api/simulation'
+import { fetchRoom, updateRoom } from '@/api/rooms'
 import type { Room } from '@/types/room'
 import styles from './RelationshipsGraph.module.css'
 
@@ -95,6 +96,7 @@ export function RelationshipsGraph({ roomId, onPanelOpen, onOrchestrationToggle 
   const [speedLoading, setSpeedLoading] = useState(false)
   const [room, setRoom] = useState<Room | null>(null)
   const { data, isLoading, error, reload } = useRelationships(roomId)
+  const { lastRoomSpeedUpdate } = useChat()
 
   const canOrchestrate = room?.orchestration_type && room.orchestration_type !== 'single'
 
@@ -121,6 +123,12 @@ export function RelationshipsGraph({ roomId, onPanelOpen, onOrchestrationToggle 
       }
     }).catch(() => setRoom(null))
   }, [roomId])
+
+  useEffect(() => {
+    if (roomId && lastRoomSpeedUpdate?.roomId === roomId && SPEED_VALUES.includes(lastRoomSpeedUpdate.speed as 1 | 2 | 3)) {
+      setSpeed(lastRoomSpeedUpdate.speed as 1 | 2 | 3)
+    }
+  }, [roomId, lastRoomSpeedUpdate])
 
   const prevOpenRef = useRef(false)
   useEffect(() => {
@@ -197,7 +205,7 @@ export function RelationshipsGraph({ roomId, onPanelOpen, onOrchestrationToggle 
       if (!roomId || speedLoading) return
       setSpeedLoading(true)
       try {
-        await updateRoomSpeed(roomId, newSpeed)
+        await updateRoom(roomId, { speed: newSpeed })
         setSpeed(newSpeed)
       } catch {
         // Ошибка — состояние не меняем

@@ -44,6 +44,10 @@ interface ChatContextValue {
   refreshChats: () => Promise<void>
   /** Обновить чаты в фоне без индикатора загрузки */
   refreshChatsSilent: () => Promise<void>
+  /** Уведомить об изменении скорости комнаты (для синхронизации с правой панелью) */
+  updateRoomSpeedFromExternal: (roomId: string, speed: number) => void
+  /** Последнее обновление скорости (roomId, speed) — для подписки в RelationshipsGraph */
+  lastRoomSpeedUpdate: { roomId: string; speed: number } | null
 }
 
 const ChatContext = createContext<ChatContextValue | null>(null)
@@ -65,6 +69,11 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
   const [isMessagesLoading, setIsMessagesLoading] = useState(false)
   const [isLoadMoreLoading, setIsLoadMoreLoading] = useState(false)
+  const [lastRoomSpeedUpdate, setLastRoomSpeedUpdate] = useState<{ roomId: string; speed: number } | null>(null)
+
+  const updateRoomSpeedFromExternal = useCallback((roomId: string, speed: number) => {
+    setLastRoomSpeedUpdate({ roomId, speed })
+  }, [])
 
   useEffect(() => {
     chatApi.fetchDefaultAgents().then(setDefaultAgents).catch(() => setDefaultAgents([]))
@@ -382,6 +391,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     deleteChat,
     refreshChats: loadChats,
     refreshChatsSilent,
+    updateRoomSpeedFromExternal,
+    lastRoomSpeedUpdate,
   }
 
   return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>

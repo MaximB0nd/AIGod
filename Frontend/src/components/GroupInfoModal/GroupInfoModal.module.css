@@ -140,11 +140,214 @@
   word-break: break-word;
 }
 
+.descriptionTextarea {
+  width: 100%;
+  min-height: 88px;
+  padding: 12px 14px;
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  color: var(--tg-text);
+  background: var(--tg-hover);
+  border: 1px solid var(--tg-border);
+  border-radius: var(--radius-sm);
+  resize: vertical;
+  box-sizing: border-box;
+  font-family: inherit;
+}
+
+.descriptionTextarea:focus {
+  outline: none;
+  border-color: var(--tg-accent);
+}
+
+.descriptionTextarea::placeholder {
+  color: var(--tg-muted);
+}
+
+.descriptionTextarea:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.descriptionActions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.descriptionSaveBtn,
+.descriptionCancelBtn {
+  padding: 8px 16px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.descriptionSaveBtn {
+  background: var(--tg-accent);
+  color: #fff;
+  border: none;
+}
+
+.descriptionSaveBtn:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.descriptionSaveBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.descriptionCancelBtn {
+  background: transparent;
+  color: var(--tg-muted);
+  border: 1px solid var(--tg-border);
+}
+
+.descriptionCancelBtn:hover:not(:disabled) {
+  background: var(--tg-hover);
+  color: var(--tg-text);
+}
+
+.descriptionCancelBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.editDescriptionBtn {
+  margin-top: 8px;
+  padding: 6px 12px;
+  font-size: 0.8125rem;
+  color: var(--tg-accent);
+  background: transparent;
+  border: 1px solid var(--tg-accent);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.editDescriptionBtn:hover {
+  background: var(--tg-accent);
+  color: #fff;
+}
+
 .noDescription {
   margin: 0;
   font-size: 0.875rem;
   color: var(--tg-muted);
   font-style: italic;
+}
+
+.speedBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.speedLabel {
+  font-size: 0.875rem;
+  color: var(--tg-text);
+}
+
+.speedTicks {
+  display: flex;
+  justify-content: space-between;
+  gap: 4px;
+}
+
+.speedTick,
+.speedTickActive {
+  flex: 1;
+  padding: 6px 8px;
+  border: 1px solid var(--tg-border);
+  border-radius: var(--radius-sm);
+  background: var(--tg-chat-bg);
+  color: var(--tg-muted);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.speedTick:hover:not(:disabled),
+.speedTickActive:hover:not(:disabled) {
+  background: var(--tg-hover);
+  color: var(--tg-text);
+}
+
+.speedTickActive {
+  background: var(--tg-active);
+  color: var(--tg-accent);
+  border-color: var(--tg-accent);
+}
+
+.speedTick:disabled,
+.speedTickActive:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.speedSlider {
+  flex: 1;
+  min-width: 0;
+  height: 10px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: var(--tg-border);
+  border-radius: var(--radius-sm);
+}
+
+.speedSlider::-webkit-slider-runnable-track {
+  height: 10px;
+  border-radius: var(--radius-sm);
+  background: var(--tg-border);
+}
+
+.speedSlider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 22px;
+  height: 22px;
+  margin-top: -6px;
+  border-radius: 50%;
+  background: var(--tg-accent);
+  cursor: grab;
+  border: 2px solid var(--tg-chat-bg);
+  box-shadow: var(--shadow-bento);
+  transition: transform 0.15s;
+}
+
+.speedSlider::-webkit-slider-thumb:active {
+  cursor: grabbing;
+}
+
+.speedSlider::-moz-range-track {
+  height: 10px;
+  border-radius: var(--radius-sm);
+  background: var(--tg-border);
+}
+
+.speedSlider::-moz-range-thumb {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--tg-accent);
+  cursor: grab;
+  border: 2px solid var(--tg-chat-bg);
+  box-shadow: var(--shadow-bento);
+  transition: transform 0.15s;
+}
+
+.speedSlider::-moz-range-thumb:active {
+  cursor: grabbing;
+}
+
+.speedSlider:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .agentsSection {
