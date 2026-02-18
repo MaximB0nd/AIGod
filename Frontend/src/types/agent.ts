@@ -30,10 +30,21 @@ export interface Plan {
   status: 'pending' | 'in_progress' | 'done'
 }
 
+/** Взаимоотношение с другим агентом (из agent.relationships) */
+export interface AgentRelationship {
+  agentId?: string
+  agentName?: string
+  sympathyLevel?: number
+}
+
 export interface Agent extends AgentSummary {
   character?: string
+  /** Ключевые воспоминания (всегда массив, может быть пустым) */
   keyMemories?: Memory[]
+  /** Планы (всегда массив, может быть пустым) */
   plans?: Plan[]
+  /** Взаимоотношения с другими агентами (всегда массив, может быть пустым) */
+  relationships?: AgentRelationship[]
 }
 
 export interface RelationshipsResponse {

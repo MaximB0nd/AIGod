@@ -11,10 +11,11 @@ export interface FeedEvent {
   moodImpact?: Record<string, number>
 }
 
+/** sender: 'user' — от пользователя; строка — имя агента или спецтип (🎭 Рассказчик, 📊 Суммаризатор, Система) */
 export interface FeedMessage {
   id: string
   text: string
-  sender: 'user' | 'agent'
+  sender: 'user' | 'agent' | 'system' | string
   agentId?: string | null
   timestamp: string
 }
@@ -24,6 +25,6 @@ export type FeedItemPayload = FeedEvent | FeedMessage
 export interface FeedResponse {
   items: Array<
     | { type: 'event'; id: string; eventType: string; agentIds: string[]; description: string; timestamp: string }
-    | { type: 'message'; id: string; text: string; sender: 'user' | 'agent'; agentId: string | null; timestamp: string }
+    | { type: 'message'; id: string; text: string; sender: 'user' | 'agent' | 'system' | string; agentId: string | null; timestamp: string }
   >
 }

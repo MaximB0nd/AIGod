@@ -44,11 +44,12 @@ export async function sendMessage(
   )
 }
 
+/** sender может быть именем агента или спецтипом: 🎭 Рассказчик, 📊 Суммаризатор, Система */
 export interface MessagesResponse {
   messages: Array<{
     id: string
     text: string
-    sender: 'user' | 'agent' | 'system'
+    sender: 'user' | 'agent' | 'system' | string
     agentId: string | null
     timestamp: string
   }>

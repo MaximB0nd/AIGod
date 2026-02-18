@@ -8,7 +8,7 @@ import { useTts } from '@/context/TtsContext'
 import styles from './ChatView.module.css'
 
 interface MessageBubbleProps {
-  message: Message & { sender?: 'user' | 'agent' | 'system' }
+  message: Message & { sender?: 'user' | 'agent' | 'system' | string }
   character?: Character
   isOutgoing: boolean
   /** При клике на аватар — открыть профиль агента (только для входящих) */
@@ -17,7 +17,8 @@ interface MessageBubbleProps {
 
 export function MessageBubble({ message, character, isOutgoing, onAvatarClick }: MessageBubbleProps) {
   const time = formatChatTime(message.timestamp)
-  const authorName = isOutgoing ? 'Вы' : (character?.name ?? 'Агент')
+  /** Для спецтипов (🎭 Рассказчик, 📊 Суммаризатор, Система) и имён агентов — показываем sender */
+  const authorName = isOutgoing ? 'Вы' : (character?.name ?? (message.sender && typeof message.sender === 'string' ? message.sender : 'Агент'))
   const { playingMessageId, play, stop } = useTts()
   const hasContent = Boolean(message.content?.trim())
   const isPlaying = playingMessageId === message.id

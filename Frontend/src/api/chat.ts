@@ -85,7 +85,7 @@ export async function fetchFeed(chatId: string): Promise<FeedItem[]> {
           content: i.text ?? '',
           timestamp: i.timestamp,
           isRead: true,
-          sender: (i as { sender?: 'user' | 'agent' | 'system' }).sender ?? 'agent',
+          sender: (i as { sender?: 'user' | 'agent' | 'system' | string }).sender ?? 'agent',
         },
       }
     }
@@ -163,7 +163,7 @@ export async function fetchMessagesFeedAndCharacters(chatId: string): Promise<{
           content: i.text,
           timestamp: i.timestamp,
           isRead: true,
-          sender: (i as { sender?: 'user' | 'agent' | 'system' }).sender ?? 'agent',
+          sender: (i as { sender?: 'user' | 'agent' | 'system' | string }).sender ?? 'agent',
         },
       }
     }

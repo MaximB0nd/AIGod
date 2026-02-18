@@ -158,7 +158,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         const p = msg.payload as {
           id?: string | number
           text?: string
-          sender?: 'user' | 'agent' | 'system'
+          /** Имя агента, 'user', или спецтип: 🎭 Рассказчик, 📊 Суммаризатор, Система */
+          sender?: 'user' | 'agent' | 'system' | string
           agentId?: string | null
           timestamp?: string
         }

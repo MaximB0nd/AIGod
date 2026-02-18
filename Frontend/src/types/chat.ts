@@ -15,6 +15,7 @@ export interface Chat {
   unreadCount?: number
 }
 
+/** sender: 'user' — от пользователя; строка — имя агента или спецтип (🎭 Рассказчик, 📊 Суммаризатор, Система) */
 export interface Message {
   id: string
   chatId: string
@@ -22,7 +23,7 @@ export interface Message {
   content: string
   timestamp: string
   isRead: boolean
-  sender?: 'user' | 'agent' | 'system'
+  sender?: 'user' | 'agent' | 'system' | string
 }
 
 export interface Character {
@@ -42,5 +43,5 @@ export interface Event {
 }
 
 export type FeedItem =
-  | { type: 'message'; data: Message & { sender?: 'user' | 'agent' | 'system' } }
+  | { type: 'message'; data: Message & { sender?: 'user' | 'agent' | 'system' | string } }
   | { type: 'event'; data: Event }
